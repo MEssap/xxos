@@ -1,0 +1,12 @@
+  .section .text.entry
+  .globl _start
+_start:
+  la sp, boot_stack_top
+  call main
+
+  .section .bss.stack           # there is stack
+  .globl boot_stack_lower_bound
+boot_stack_lower_bound:
+  .space 4096 * 16              # 64KB
+  .globl boot_stack_top
+boot_stack_top:
