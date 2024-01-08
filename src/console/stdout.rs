@@ -2,10 +2,13 @@
 
 use crate::opensbi::Opensbi;
 use core::fmt::{self, Write};
+use xx_mutex_lock::Mutex;
 
-struct Stdout;
+pub static PT: Mutex<Writer> = Mutex::new(Writer);
 
-impl Write for Stdout {
+pub struct Writer;
+
+impl Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         for c in s.chars() {
             Opensbi::console_putchar(c as usize);
@@ -15,5 +18,5 @@ impl Write for Stdout {
 }
 
 pub fn print(args: fmt::Arguments) {
-    Stdout.write_fmt(args).unwrap();
+    PT.lock().write_fmt(args).unwrap();
 }
