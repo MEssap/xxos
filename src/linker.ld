@@ -34,7 +34,7 @@ SECTIONS
   edata = .;
   .bss : {
     *(.bss.stack)
-    bss_start = .;
+    sbss = .;
     *(.bss .bss.*)
     *(.sbss .sbss.*)
   }
