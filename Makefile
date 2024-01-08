@@ -5,8 +5,8 @@ QEMU = qemu-system-riscv64
 
 QFLAGS = -machine virt 
 QFLAGS += -nographic 
-#QFLAGS += -bios default
-QFLAGS += -bios opensbi-1.3.1-rv-bin/share/opensbi/lp64/generic/firmware/fw_dynamic.bin
+QFLAGS += -bios default
+#QFLAGS += -bios opensbi-1.3.1-rv-bin/share/opensbi/lp64/generic/firmware/fw_dynamic.bin
 QFLAGS += -m 128M 
 QFLAGS += -smp 3
 QFLAGS += -kernel $K/xxos.bin
