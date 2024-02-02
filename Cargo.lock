@@ -12,4 +12,23 @@ name = "xxos"
 version = "0.1.0"
 dependencies = [
  "xx_mutex_lock",
+ "xxos_alloc",
+ "xxos_log",
+]
+
+[[package]]
+name = "xxos_alloc"
+version = "0.1.0"
+source = "git+https://github.com/ZyLqb/xx_alloc.git?branch=master#e144f1545e0155e810e1a80cac51e07e780cfe0d"
+dependencies = [
+ "xx_mutex_lock",
+ "xxos_log",
+]
+
+[[package]]
+name = "xxos_log"
+version = "0.1.0"
+source = "git+https://github.com/MEssap/xxos_log.git?branch=main#ad4195b20d6fc5ad6ad7b9c7f848ddc11abb21d6"
+dependencies = [
+ "xx_mutex_lock",
 ]
