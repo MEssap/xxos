@@ -17,10 +17,9 @@ macro_rules! println {
     }
 }
 
-
 pub struct Log;
 impl xxos_log::WriteLog for Log {
     fn print(&self, log_content: core::fmt::Arguments) {
-        println!("{}",log_content);       
+        println!("{}", log_content);
     }
 }

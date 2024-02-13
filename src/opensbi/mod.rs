@@ -11,6 +11,8 @@ impl Opensbi {
         sbi_call(SBI_CONSOLE_PUTCHAR, c, 0, 0, 0);
     }
 
+    // 启动硬件线程(hart, Hardware Thread)
+    // 在risc-v中，一个hart就是一个CPU
     pub fn sbi_hsm_hart_start(hart_id: usize) -> usize {
         sbi_call(SBI_EXT_HSM, hart_id, 0x80200000, 64, SBI_EXT_HSM_HART_START)
     }
@@ -29,6 +31,7 @@ pub fn r_tp() -> usize {
         id
     }
 }
+
 pub fn thread_start() {
     use crate::println;
     println!("hello");
