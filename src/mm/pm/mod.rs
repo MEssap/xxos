@@ -14,6 +14,6 @@ pub fn heap_init() {
     let btm = ekernel as usize;
     let top = PHYSTOP - PGSZ * 100;
 
-    info!(" ekernel is {:#x} top is {:#x} ", btm, top);
+    info!("memory bottom is {:#x}, memory top is {:#x} ", btm, top);
     ALLOCATOR.init(btm, top);
 }
