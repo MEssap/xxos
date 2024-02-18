@@ -1,24 +1,19 @@
 #![allow(unused)]
+use core::arch::asm;
 
-// satp register
+// register satp(Supervisor Address Translation and Protection)
 pub struct Satp {
-    bits: usize,
+    pub bits: usize,
 }
 
 // satp mode
 pub enum Mode {
-    Bare = 0,  // No translation or protection
-    Sv39 = 8,  // Page-based 39-bit virtual addressing
-    Sv48 = 9,  // Page-based 48-bit virtual addressing
-    Sv57 = 10, // Page-based 57-bit virtual addressing
-    Sv64 = 11, // Page-based 64-bit virtual addressing
+    Bare = 0b0000, // No translation or protection
+    Sv39 = 0b1000, // Page-based 39-bit virtual addressing
+    Sv48 = 0b1001, // Page-based 48-bit virtual addressing
 }
 
 impl Satp {
-    pub fn new() -> Self {
-        Self { bits: 0 }
-    }
-
     // Current address-translation scheme
     #[inline]
     pub fn mode(&self) -> Mode {
@@ -26,8 +21,6 @@ impl Satp {
             0 => Mode::Bare,
             8 => Mode::Sv39,
             9 => Mode::Sv48,
-            10 => Mode::Sv57,
-            11 => Mode::Sv64,
             _ => unreachable!(),
         }
     }
@@ -45,24 +38,19 @@ impl Satp {
     }
 }
 
-pub mod satp {
-    use super::Satp;
-    use core::arch::asm;
+#[inline]
+pub fn read() -> Satp {
+    let mut bits = 0;
+    unsafe { asm!("csrr {}, satp", out(reg) bits) }
+    Satp { bits }
+}
 
-    #[inline]
-    pub fn read() -> Satp {
-        let mut bits = 0;
-        unsafe { asm!("csrr {}, satp", out(reg) bits) }
-        Satp { bits }
-    }
+#[inline]
+pub fn write(bits: usize) {
+    unsafe { asm!("csrw satp, {}", in(reg) bits) }
+}
 
-    #[inline]
-    pub fn write(bits: usize) {
-        unsafe { asm!("csrw satp, {}", in(reg) bits) }
-    }
-
-    #[inline]
-    pub unsafe fn clear(bits: usize) {
-        asm!("csrc satp, {}", in(reg) bits);
-    }
+#[inline]
+pub fn clear(bits: usize) {
+    unsafe { asm!("csrc satp, {}", in(reg) bits) }
 }

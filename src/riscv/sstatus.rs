@@ -1,6 +1,9 @@
+#![allow(unused)]
+use core::arch::asm;
+
 /// regiter sstatus(Supervisor Status Register)
 pub struct Sstatus {
-    bits: usize,
+    pub bits: usize,
 }
 
 // Supervisor Previous Privilege Mode
@@ -11,10 +14,6 @@ pub enum SPP {
 }
 
 impl Sstatus {
-    pub const fn new() -> Self {
-        Self { bits: 0 }
-    }
-
     // Supervisor Interrupt Enable
     #[inline]
     pub fn sie(&self) -> bool {
@@ -44,24 +43,19 @@ impl Sstatus {
     }
 }
 
-pub mod sstatus {
-    use super::Sstatus;
-    use core::arch::asm;
+#[inline]
+pub fn read() -> Sstatus {
+    let mut bits = 0;
+    unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
+    Sstatus { bits }
+}
 
-    #[inline]
-    pub fn read() -> Sstatus {
-        let mut bits = 0;
-        unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
-        Sstatus { bits }
-    }
+#[inline]
+pub fn write(bits: usize) {
+    unsafe { asm!("csrw sstatus, {}", in(reg) bits) }
+}
 
-    #[inline]
-    pub fn write(bits: usize) {
-        unsafe { asm!("csrw sstatus, {}", in(reg) bits) }
-    }
-
-    #[inline]
-    pub unsafe fn clear(bits: usize) {
-        asm!("csrc sstatus, {}", in(reg) bits);
-    }
+#[inline]
+pub fn clear(bits: usize) {
+    unsafe { asm!("csrc sstatus, {}", in(reg) bits) }
 }

@@ -8,6 +8,7 @@ use xxos::console::Log;
 use xxos::mm;
 use xxos::opensbi::thread_start;
 use xxos::println;
+use xxos::riscv::riscv_test;
 
 static STARTED: AtomicBool = AtomicBool::new(false);
 extern crate alloc;
@@ -28,6 +29,7 @@ fn main() {
         mm::pm::heap_init();
 
         // test
+        riscv_test();
         let mut vec: Vec<u8> = alloc::vec::Vec::with_capacity(0x5000);
         vec.push(1);
         println!("vec {:?}", vec);
