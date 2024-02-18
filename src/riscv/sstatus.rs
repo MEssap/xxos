@@ -43,3 +43,25 @@ impl Sstatus {
         self.bits & (1 << 19) != 0
     }
 }
+
+pub mod sstatus {
+    use super::Sstatus;
+    use core::arch::asm;
+
+    #[inline]
+    pub fn read() -> Sstatus {
+        let mut bits = 0;
+        unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
+        Sstatus { bits }
+    }
+
+    #[inline]
+    pub fn write(bits: usize) {
+        unsafe { asm!("csrw sstatus, {}", in(reg) bits) }
+    }
+
+    #[inline]
+    pub unsafe fn clear(bits: usize) {
+        asm!("csrc sstatus, {}", in(reg) bits);
+    }
+}
