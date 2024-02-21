@@ -8,7 +8,7 @@ pub mod fs;
 pub mod lang_item;
 pub mod mm;
 pub mod opensbi;
-//pub mod proc;
+pub mod proc;
 pub mod riscv;
 pub mod sched;
 pub mod syscall;

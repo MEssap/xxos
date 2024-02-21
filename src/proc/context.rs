@@ -2,7 +2,10 @@
 
 use core::arch::{asm, global_asm};
 
+global_asm!(include_str!("switch.s"));
+
 #[repr(C)]
+#[derive(Debug)]
 pub struct Context {
     ra: usize,
     sp: usize,
@@ -44,12 +47,22 @@ impl Context {
 
     #[inline]
     pub unsafe fn store_context(&self) {
-        global_asm!("store_context.s");
+        extern "C" {
+            fn _store_context(context: &Context);
+        }
+        _store_context(self);
     }
 
     #[inline]
     pub unsafe fn load_context(&self) {
-        global_asm!("store_context.s");
+        extern "C" {
+            fn _load_context(context: &Context);
+        }
+        _load_context(self);
+    }
+
+    pub fn test(&mut self, sp: usize) {
+        self.sp = sp;
     }
 
     pub unsafe fn scheduler() {}
