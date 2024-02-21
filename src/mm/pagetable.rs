@@ -1,31 +1,29 @@
 #![allow(unused)]
-use crate::riscv::{
-    pteflags::*,
-    sv39::{PTE_PPN, PTE_PPN_OFFSET},
-};
+use core::mem::size_of;
 
-use super::def::PGSZ;
+use super::{address::PhysicalPageNumber, def::PGSZ};
+use crate::riscv::sv39::{pteflags::*, PPN_MASK, PPN_OFFSET};
 
-type PhysicalMemoryAddress = usize;
-type VirtualMemoryAddress = usize;
-type PhysicalPageNumber = usize;
-
-struct PageTableEntrys {
+#[repr(C)]
+pub struct PageTableEntry {
     bits: usize,
 }
 
+#[repr(C)]
 pub struct PageTable {
-    entrys: [PageTableEntrys; PGSZ / 8],
+    entrys: [PageTableEntry; PGSZ / size_of::<PageTableEntry>()],
 }
 
-impl PageTableEntrys {
+impl PageTableEntry {
     #[inline]
-    pub fn get_ppn(&self) -> PhysicalPageNumber {
-        (self.bits & PTE_PPN) >> PTE_PPN_OFFSET
+    pub fn ppn(&self) -> PhysicalPageNumber {
+        let mut ppn = PhysicalPageNumber::new();
+        ppn.0 = (self.bits & PPN_MASK) >> PPN_OFFSET;
+        ppn
     }
 
     #[inline]
-    pub fn check_flags(&self, flags: PteFlags) -> bool {
+    pub fn check_flags(&self, flags: PTEFlags) -> bool {
         self.bits & (flags as usize) != 0
     }
 

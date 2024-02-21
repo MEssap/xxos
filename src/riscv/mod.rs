@@ -2,7 +2,6 @@ use xxos_log::{error, info};
 
 pub mod cpu;
 pub(crate) mod def;
-pub mod pteflags;
 pub mod registers;
 pub mod sv39;
 
