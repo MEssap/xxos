@@ -61,8 +61,8 @@ impl Context {
         _load_context(self);
     }
 
-    pub fn test(&mut self, sp: usize) {
-        self.sp = sp;
+    pub fn test(&mut self, s1: usize) {
+        self.s1 = s1;
     }
 
     pub unsafe fn scheduler() {}
