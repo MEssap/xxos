@@ -2,13 +2,13 @@ use xxos_log::{error, info};
 
 pub mod cpu;
 pub(crate) mod def;
-pub mod satp;
-//pub mod scause;
 pub mod pteflags;
-pub mod sstatus;
+pub mod registers;
 pub mod sv39;
 
 pub fn riscv_test() {
+    use registers::{satp, sstatus};
+
     let mut satp = satp::read();
     let mut sstatus = sstatus::read();
 
