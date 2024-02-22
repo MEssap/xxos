@@ -22,13 +22,17 @@ pub mod pteflags {
     // reserved 2 bits
 
     pub enum PTEFlags {
-        V = 1,
-        R = 1 << 1,
-        W = 1 << 2,
-        X = 1 << 3,
-        U = 1 << 4,
-        G = 1 << 5,
-        A = 1 << 6,
-        D = 1 << 7,
+        V = PTE_FLAG_V as isize,
+        R = PTE_FLAG_R as isize,
+        W = PTE_FLAG_W as isize,
+        X = PTE_FLAG_X as isize,
+        U = PTE_FLAG_U as isize,
+        G = PTE_FLAG_G as isize,
+        A = PTE_FLAG_A as isize,
+        D = PTE_FLAG_D as isize,
+        RW = (PTE_FLAG_R + PTE_FLAG_W) as isize,
+        RWX = (PTE_FLAG_R + PTE_FLAG_W + PTE_FLAG_X) as isize,
+        // 如果使用enum则需要穷举完存在的flag搭配?
+        // 有无更好的方式能够一次性检验多个flags?
     }
 }

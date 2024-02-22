@@ -6,6 +6,7 @@ use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 use xxos::console::Log;
 use xxos::mm;
+use xxos::mm::pagetable::pgtb_test;
 use xxos::opensbi::thread_start;
 use xxos::println;
 use xxos::proc::context_test;
@@ -30,8 +31,9 @@ fn main() {
         mm::pm::heap_init();
 
         // test
-        context_test();
-        riscv_test();
+        pgtb_test();
+        //context_test();
+        //riscv_test();
         let mut vec: Vec<u8> = alloc::vec::Vec::with_capacity(0x5000);
         vec.push(1);
         println!("vec {:?}", vec);

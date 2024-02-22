@@ -1,6 +1,8 @@
+use alloc::boxed::Box;
+
 use crate::mm::pagetable::PageTable;
 
 // Kernel Virtual Memory
 pub struct Kvm {
-    pagetable: *mut PageTable,
+    root_pgtb: Box<PageTable>,
 }
