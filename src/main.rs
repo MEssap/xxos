@@ -2,7 +2,7 @@
 #![no_std]
 use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
-use alloc::vec::Vec;
+use alloc::vec;
 use xxos::console::Log;
 use xxos::mm;
 use xxos::opensbi::thread_start;
@@ -18,11 +18,9 @@ fn main() {
     if thread_id == 0 {
         clear_bss();
         xxos_log::init_log(&Log, xxos_log::Level::INFO);
-        //ALLOCATOR.init(bottom, top);
         mm::pm::heap_init();
-        let mut vec:Vec<u8> = alloc::vec::Vec::with_capacity(0x5000);
-        vec.push(1);
-        println!("vec {:?}",vec);
+        let a = vec![1,2,3,4];
+        println!("{:?}",a);
         println!("Thread {} start !!!", thread_id);
         STARTED.store(true, Ordering::SeqCst);
     } else {

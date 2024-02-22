@@ -28,7 +28,7 @@ dependencies = [
 [[package]]
 name = "xxos_log"
 version = "0.1.0"
-source = "git+https://github.com/MEssap/xxos_log.git?branch=main#ad4195b20d6fc5ad6ad7b9c7f848ddc11abb21d6"
+source = "git+https://github.com/MEssap/xxos_log.git?branch=main#df1f34c9e74f7cf1ee3ecd653e793b16c84bf412"
 dependencies = [
  "xx_mutex_lock",
 ]

@@ -30,8 +30,6 @@ pub fn r_tp() -> usize {
     }
 }
 pub fn thread_start() {
-    use crate::println;
-    println!("hello");
     let tp = r_tp();
     let i: usize = 0;
     for i in i..N_HART {
