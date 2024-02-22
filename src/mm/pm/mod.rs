@@ -4,6 +4,7 @@ use xxos_log::info;
 
 use crate::mm::pm::def::{PGSZ, PHYSTOP};
 
+// 定义新的分配器
 #[global_allocator]
 static ALLOCATOR: LockedSlab = LockedSlab::new_uninit();
 

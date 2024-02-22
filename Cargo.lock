@@ -19,7 +19,7 @@ dependencies = [
 [[package]]
 name = "xxos_alloc"
 version = "0.1.0"
-source = "git+https://github.com/ZyLqb/xx_alloc.git?branch=master#e144f1545e0155e810e1a80cac51e07e780cfe0d"
+source = "git+https://github.com/ZyLqb/xx_alloc.git?branch=master#42981bac72c0fcc192f02ed737dc427680e28a03"
 dependencies = [
  "xx_mutex_lock",
  "xxos_log",

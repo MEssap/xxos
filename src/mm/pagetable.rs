@@ -1,8 +1,22 @@
 #![allow(unused)]
 use core::mem::size_of;
 
-use super::{address::PhysicalPageNumber, def::PGSZ};
+use super::def::PGSZ;
 use crate::riscv::sv39::{pteflags::*, PPN_MASK, PPN_OFFSET};
+
+// PMA have 2 fileds:
+// 1. Page Offset field(0-11)
+// 2. PPN filed(12-56)
+pub type PhysicalMemoryAddress = usize;
+pub type PhysicalPageNumber = usize;
+
+// VMA have 4 fileds:
+// 1. Page Offset field(0-11)
+// 2. VPN0: 3rd pagetable index filed(12-20)
+// 3. VPN1: 2nd pagetable index filed(21-29)
+// 4. VPN2: 1st pagetable index filed(30-38)
+pub type VirtualMemoryAddress = usize;
+pub type VirtualPageNumber = usize;
 
 #[repr(C)]
 pub struct PageTableEntry {
@@ -17,9 +31,7 @@ pub struct PageTable {
 impl PageTableEntry {
     #[inline]
     pub fn ppn(&self) -> PhysicalPageNumber {
-        let mut ppn = PhysicalPageNumber::new();
-        ppn.0 = (self.bits & PPN_MASK) >> PPN_OFFSET;
-        ppn
+        (self.bits & PPN_MASK) >> PPN_OFFSET
     }
 
     #[inline]
