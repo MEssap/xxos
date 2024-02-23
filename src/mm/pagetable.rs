@@ -87,29 +87,30 @@ impl PageTableFrame {
         if pgtb.entrys[idx0].ppn() != 0 {
             let pgtb = &mut unsafe { *(pgtb.entrys[idx0].ppn() as *mut PageTable) };
         } else {
+            info!("this vpn never map");
             let page = alloc_page();
-            pgtb.entrys[idx0].set(page.address());
-            self.frames.push(page);
+            //pgtb.entrys[idx0].set(page.address());
+            //self.frames.push(page);
         }
 
-        // walk in 2st pagetable
-        if pgtb.entrys[idx1].ppn() != 0 {
-            let pgtb = &mut unsafe { *(pgtb.entrys[idx1].ppn() as *mut PageTable) };
-        } else {
-            let page = alloc_page();
-            pgtb.entrys[idx1].set(page.address());
-            self.frames.push(page);
-        }
+        //// walk in 2st pagetable
+        //if pgtb.entrys[idx1].ppn() != 0 {
+        //    let pgtb = &mut unsafe { *(pgtb.entrys[idx1].ppn() as *mut PageTable) };
+        //} else {
+        //    let page = alloc_page();
+        //    pgtb.entrys[idx1].set(page.address());
+        //    self.frames.push(page);
+        //}
 
-        // walk in 3st pagetable and map vpn to ppn
-        if pgtb.entrys[idx2].ppn() != 0 {
-            error!("already map");
-            panic!("");
-        } else {
-            let page = alloc_page();
-            pgtb.entrys[idx2].set(page.address());
-            self.frames.push(page);
-        }
+        //// walk in 3st pagetable and map vpn to ppn
+        //if pgtb.entrys[idx2].ppn() != 0 {
+        //    error!("already map");
+        //    panic!("");
+        //} else {
+        //    let page = alloc_page();
+        //    pgtb.entrys[idx2].set(page.address());
+        //    self.frames.push(page);
+        //}
     }
     pub fn unmap(&mut self, vpn: VirtualPageNumber) {}
 }
@@ -173,22 +174,23 @@ impl PageTableEntry {
 
 pub fn pgtb_test() {
     info!("======== pagetable test start ========");
-    let mut pgtb = Box::new(PageTableFrame::new());
+    let mut pgtb = PageTableFrame::new();
     let vpn0: usize = 1 << VPN0_OFFSET;
     let vpn1: usize = 1 << VPN1_OFFSET;
     let vpn2: usize = 1 << VPN2_OFFSET;
     let offset = 0xaaa;
-
+    let flags = PTE_FLAG_V | PTE_FLAG_R;
     let vpn = vpn0 + vpn1 + vpn2 + offset;
+
     info!("vpn0: {:#x}", vpn0);
     info!("vpn1: {:#x}", vpn1);
     info!("vpn2: {:#x}", vpn2);
     info!("vpn: {:#x}", vpn);
 
-    let flags = PTE_FLAG_V | PTE_FLAG_R;
+    info!("pagetable created: {:#x?}", pgtb);
+    info!("start to map");
     pgtb.map(vpn, vpn, flags);
-    info!("{:#x?}", pgtb);
-    //let pgtb1: PageTable = unsafe { *(pgtb.root() as *mut PageTable) };
-    //info!("{:#x?}", pgtb1);
+    ////let pgtb1: PageTable = unsafe { *(pgtb.root() as *mut PageTable) };
+    ////info!("{:#x?}", pgtb1);
     info!("======== pagetable test end ========");
 }
