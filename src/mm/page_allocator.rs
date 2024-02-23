@@ -25,6 +25,12 @@ impl FrameAllocator for PageFrame {
     }
 }
 
+impl From<usize> for PageFrame {
+    fn from(ppn: usize) -> Self {
+        Self { address: ppn }
+    }
+}
+
 impl Drop for PageFrame {
     fn drop(&mut self) {
         // 重新建立一个Box，并在作用域结束时释放
