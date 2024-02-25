@@ -6,9 +6,9 @@ pub const PTE_FLAGS_OFFSET: u8 = 0;
 pub const PTE_FLAGS_WIDTH: u8 = 10;
 pub const PTE_FLAGS_MASK: usize = (1 << PTE_FLAGS_WIDTH) - 1;
 
-pub const PPN_OFFSET: u8 = 10;
-pub const PPN_WIDTH: u8 = 44;
-pub const PPN_MASK: usize = ((1 << (PPN_OFFSET + PPN_WIDTH)) - 1) ^ PTE_FLAGS_MASK;
+pub const PTE_PPN_OFFSET: u8 = 10;
+pub const PTE_PPN_WIDTH: u8 = 44;
+pub const PTE_PPN_MASK: usize = ((1 << (PTE_PPN_OFFSET + PTE_PPN_WIDTH + 1)) - 1) ^ PTE_FLAGS_MASK;
 
 pub mod pteflags {
     pub const PTE_FLAG_V: usize = 1;

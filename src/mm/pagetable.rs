@@ -1,41 +1,45 @@
 #![allow(unused)]
-use alloc::{boxed::Box, vec, vec::Vec};
-use core::{mem::size_of, ops::DerefMut};
-use xx_mutex_lock::{Mutex, MutexGuard};
-use xxos_log::{error, info, warn};
-
 use super::{
     def::PGSZ,
     page_allocator::{alloc_page, FrameAllocator, PageFrame},
 };
 use crate::{
     error,
-    riscv::sv39::{pteflags::*, PPN_MASK, PPN_OFFSET},
+    riscv::sv39::{pteflags::*, PTE_PPN_MASK, PTE_PPN_OFFSET},
 };
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{mem::size_of, ops::DerefMut};
+use xx_mutex_lock::{Mutex, MutexGuard};
+use xxos_log::{error, info, warn};
+
+#[derive(Debug)]
+pub enum PageTableErr {
+    AlreadyMap,
+}
 
 // PMA have 2 fileds:
 // 1. Page Offset field(0-11)
 // 2. PPN filed(12-56)
 pub type PhysicalMemoryAddress = usize; // PMA
 pub type PhysicalPageNumber = usize; // PPN
+const PPN_OFFSET: usize = 12;
 
 // VMA have 4 fileds:
 // 1. Page Offset field(0-11)
 // 2. VPN0: 3rd pagetable index filed(12-20)
 // 3. VPN1: 2nd pagetable index filed(21-29)
 // 4. VPN2: 1st pagetable index filed(30-38)
-const VPN0_OFFSET: usize = 12;
-const VPN1_OFFSET: usize = 21;
-const VPN2_OFFSET: usize = 30;
+const VPN1_OFFSET: usize = 9;
+const VPN2_OFFSET: usize = 18;
 const VPN_PART_WIDTH: usize = 9;
-const VPN0_MASK: usize = ((1 << (VPN0_OFFSET + VPN_PART_WIDTH)) - 1) ^ ((1 << VPN0_OFFSET) - 1);
-const VPN1_MASK: usize = ((1 << (VPN1_OFFSET + VPN_PART_WIDTH)) - 1) ^ ((1 << VPN1_OFFSET) - 1);
-const VPN2_MASK: usize = ((1 << (VPN2_OFFSET + VPN_PART_WIDTH)) - 1) ^ ((1 << VPN2_OFFSET) - 1);
+const VPN0_MASK: usize = (1 << (VPN_PART_WIDTH)) - 1;
+const VPN1_MASK: usize = ((1 << (VPN1_OFFSET + VPN_PART_WIDTH)) - 1) ^ (VPN0_MASK);
+const VPN2_MASK: usize = ((1 << (VPN2_OFFSET + VPN_PART_WIDTH)) - 1) ^ (VPN0_MASK | VPN1_MASK);
 pub type VirtualMemoryAddress = usize; // VMA
 pub type VirtualPageNumber = usize; // VPN
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Debug)]
 pub struct PageTableEntry {
     bits: usize,
 }
@@ -47,22 +51,9 @@ impl From<usize> for PageTableEntry {
 }
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct PageTable {
     entrys: [PageTableEntry; PGSZ / size_of::<PageTableEntry>()],
-}
-
-impl From<PhysicalPageNumber> for PageTable {
-    fn from(ppn: PhysicalPageNumber) -> Self {
-        unsafe { *(ppn as *mut PageTable) }
-    }
-}
-
-impl From<PageFrame> for PageTable {
-    fn from(page: PageFrame) -> Self {
-        info!("from PageFrame {:#x} into PageTable", page.address());
-        unsafe { *(page.address() as *mut PageTable) }
-    }
 }
 
 #[derive(Debug)]
@@ -90,47 +81,6 @@ impl PageTableFrame {
         self.root
     }
 
-    pub fn walk(&mut self, vpn: usize, alloc: bool, perm: usize) -> Result<(), ()> {
-        let mut pagetable = PageTable::from(self.root);
-
-        for level in (1..3).rev() {
-            let mut pte = pagetable.entrys[0];
-
-            if pte.is_v() {
-                pagetable = PageTable::from(pte.ppn());
-            } else {
-                if !alloc {
-                    return Err(());
-                } else {
-                    let page = alloc_page();
-                    pte.set(page.address() << PPN_OFFSET);
-                    pagetable = PageTable::from(page.address());
-                    self.frames.push(page);
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn mappages(
-        &mut self,
-        vpn: VirtualPageNumber,
-        ppn: PhysicalPageNumber,
-        perm: usize,
-    ) -> Result<(), ()> {
-        loop {
-            match self.walk(vpn, true, perm) {
-                Ok(pte) => {
-                    info!("run here {:#x?}", pte);
-                }
-                Err(e) => {
-                    break Err(e);
-                }
-            }
-        }
-    }
-
     // VPN map to PPN
     // In kernel, we use direct mapping
     pub fn map(
@@ -138,54 +88,60 @@ impl PageTableFrame {
         vpn: VirtualPageNumber,
         ppn: PhysicalPageNumber,
         flags: usize,
-    ) -> Result<(), ()> {
-        info!("start to map");
+    ) -> Result<&PageTableEntry, PageTableErr> {
+        info!("vpn: {:#x?} ppn: {:#x?}", vpn, ppn);
 
-        let vpn0 = (vpn & VPN0_MASK) * 4;
-        let vpn1 = (vpn & VPN1_MASK) * 4;
-        let vpn2 = (vpn & VPN2_MASK) * 4;
-        let mut pgtb = PageTable::from(self.root());
+        let vpn0 = (vpn & VPN0_MASK);
+        let vpn1 = (vpn & VPN1_MASK) >> VPN1_OFFSET;
+        let vpn2 = (vpn & VPN2_MASK) >> VPN2_OFFSET;
+        let mut pgtb = self.root() as *mut PageTable;
 
-        // TODO: get index from vpnX
-        let idx0 = 0; // from vpn2
-        let idx1 = 0; // from vpn1
-        let idx2 = 0; // from vpn0
+        info!("vpn0: {:#x?} vpn1: {:#x?} vpn2: {:#x?}", vpn0, vpn1, vpn2);
 
         // TODO: create `walk` function
-        // walk in 1st pagetable
-        if pgtb.entrys[idx0].is_v() {
-            //pgtb = PageTable::from(pgtb.entrys[idx0].ppn());
-        } else {
-            warn!("this vpn never map in 1st pagetable");
-            let page = alloc_page();
-            pgtb.entrys[idx0].set(page.address() << PPN_OFFSET | PTE_FLAG_V);
-            self.frames.push(page);
-            //pgtb = PageTable::from(pgtb.entrys[idx0].ppn());
-        }
+        unsafe {
+            // walk in 1st pagetable
+            if (*pgtb).entrys[vpn2].is_v() {
+                info!("already map in 1st pagetable");
+                pgtb = ((*pgtb).entrys[vpn2].ppn() << PPN_OFFSET) as *mut PageTable;
+            } else {
+                warn!("this vpn never map in 1st pagetable");
+                let page = alloc_page();
+                let pte = (page.address() >> PPN_OFFSET) << PTE_PPN_OFFSET | flags;
+                warn!("set pte({:#x?}) in 1st pagetable {} entry", pte, vpn2);
+                (*pgtb).entrys[vpn2].set(pte);
+                self.frames.push(page);
+                pgtb = ((*pgtb).entrys[vpn2].ppn() << PPN_OFFSET) as *mut PageTable;
+            }
 
-        // walk in 2st pagetable
-        if pgtb.entrys[idx1].is_v() {
-            error!("pte: {:#x?}", pgtb.entrys[idx1]);
-            //pgtb = PageTable::from(pgtb.entrys[idx1].ppn());
-        } else {
-            warn!("this vpn never map in 2nd pagetable");
-            let page = alloc_page();
-            pgtb.entrys[idx1].set(page.address() << PPN_OFFSET | PTE_FLAG_V);
-            self.frames.push(page);
-            //pgtb = PageTable::from(pgtb.entrys[idx1].ppn());
-        }
+            // walk in 2nd pagetable
+            if (*pgtb).entrys[vpn1].is_v() {
+                info!("already map in 2nd pagetable");
+                pgtb = ((*pgtb).entrys[vpn1].ppn() << PPN_OFFSET) as *mut PageTable;
+            } else {
+                warn!("this vpn never map in 2nd pagetable");
+                let page = alloc_page();
+                let pte = (page.address() >> PPN_OFFSET) << PTE_PPN_OFFSET | flags;
+                warn!("set pte({:#x?}) in 2nd pagetable {} entry", pte, vpn1);
+                (*pgtb).entrys[vpn1].set(pte);
+                self.frames.push(page);
+                pgtb = ((*pgtb).entrys[vpn1].ppn() << PPN_OFFSET) as *mut PageTable;
+            }
 
-        // walk in 3st pagetable and map vpn to ppn
-        if pgtb.entrys[idx2].is_v() {
-            error!("already map");
-            Err(())
-        } else {
-            warn!("this vpn never map in 3rd pagetable");
-            let page = alloc_page();
-            pgtb.entrys[idx2].set(page.address() << PPN_OFFSET | PTE_FLAG_V);
-            self.frames.push(page);
+            // walk in 3rd pagetable and map vpn to ppn
+            if (*pgtb).entrys[vpn0].is_v() {
+                error!("already map in 3rd pagetable");
+                Err(PageTableErr::AlreadyMap)
+            } else {
+                warn!("this vpn never map in 3rd pagetable");
+                let page = alloc_page();
+                let pte = (page.address() >> PPN_OFFSET) << PTE_PPN_OFFSET | flags;
+                warn!("set pte({:#x?}) in 3rd pagetable {} entry", pte, vpn0);
+                (*pgtb).entrys[vpn0].set(pte);
+                self.frames.push(page);
 
-            Ok(())
+                Ok(&(*pgtb).entrys[vpn0])
+            }
         }
     }
 
@@ -195,12 +151,12 @@ impl PageTableFrame {
 impl PageTableEntry {
     #[inline]
     pub fn ppn(&self) -> PhysicalPageNumber {
-        (self.bits & PPN_MASK) >> PPN_OFFSET
+        (self.bits & PTE_PPN_MASK) >> PTE_PPN_OFFSET
     }
 
     #[inline]
     pub fn set(&mut self, ppn: PhysicalPageNumber) {
-        self.bits = ppn << PPN_OFFSET;
+        self.bits = ppn;
     }
 
     #[inline]
@@ -267,28 +223,27 @@ pub fn pgtb_test() {
     info!("======== pagetable test start ========");
     //let mut pgtb = LockedPageTableFrame::new();
     let mut pgtb = PageTableFrame::new();
-    let vpn0: usize = 1 << VPN0_OFFSET;
-    let vpn1: usize = 1 << VPN1_OFFSET;
-    let vpn2: usize = 1 << VPN2_OFFSET;
-    let offset = 0xaaa;
-    let flags = PTE_FLAG_V | PTE_FLAG_R;
-    let vpn = vpn0 + vpn1 + vpn2 + offset;
-
-    info!("vpn0: {:#x}", vpn0);
-    info!("vpn1: {:#x}", vpn1);
-    info!("vpn2: {:#x}", vpn2);
-    info!("vpn: {:#x}", vpn);
 
     info!("pagetableframe created: {:#x?}", pgtb);
 
-    //pgtb.mappages(vpn, vpn, flags);
-    // if use LockedPageTableFrame
-    //pgtb.0.lock().map(vpn, vpn, flags);
-    pgtb.map(vpn, vpn, flags);
+    let pa = pgtb.root();
+    let va = pgtb.root();
 
-    info!("pagetable: {:#x?}", unsafe {
-        *(pgtb.root() as *mut PageTable)
-    });
+    let ppn = pa >> PPN_OFFSET;
+    let offset = ppn & ((1 << 12) - 1);
+    let vpn = ppn;
+    let flags = PTE_FLAG_V | PTE_FLAG_R;
+
+    info!("now map vpn({:#x?}) to ppn({:#x?})", vpn, ppn);
+
+    match pgtb.map(vpn, ppn, flags) {
+        Ok(pte) => info!("pte: {:#x?}", pte),
+        Err(e) => error!("{:#x?}", e),
+    }
+    match pgtb.map(vpn, ppn, flags) {
+        Ok(pte) => info!("pte: {:#x?}", pte),
+        Err(e) => error!("{:#x?}", e),
+    }
 
     info!("======== pagetable test end ========");
 }

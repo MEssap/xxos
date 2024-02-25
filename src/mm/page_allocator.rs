@@ -25,8 +25,8 @@ impl FrameAllocator for PageFrame {
     }
 }
 
-impl From<usize> for PageFrame {
-    fn from(ppn: usize) -> Self {
+impl From<PhysicalPageNumber> for PageFrame {
+    fn from(ppn: PhysicalPageNumber) -> Self {
         Self { address: ppn }
     }
 }
