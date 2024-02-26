@@ -10,6 +10,7 @@ use crate::{
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{mem::size_of, ops::DerefMut};
 use xx_mutex_lock::{Mutex, MutexGuard};
+use xxos_alloc::{align_down, align_up};
 use xxos_log::{error, info, warn};
 
 #[derive(Debug)]
@@ -17,18 +18,18 @@ pub enum PageTableErr {
     AlreadyMap,
     NeverMap,
     Unknown,
-    OutofRange,
+    LackPageTable,
 }
 
-// PMA have 2 fileds:
+// PMA have 2 fields:
 // 1. Page Offset field(0-11)
-// 2. PPN filed(12-56)
+// 2. PPN field(12-49)
 #[derive(Debug, Clone, Copy)]
 pub struct PhysicalMemoryAddress(pub usize); // PMA
-const PMA_OFFSET_WIDTH: usize = 12;
+const PMA_OFFSET_WIDTH: u8 = 12;
 const PMA_OFFSET_MASK: usize = (1 << PMA_OFFSET_WIDTH) - 1;
-const PMA_PPN_SHIFT: usize = 12;
-const PMA_PPN_WIDTH: usize = 22;
+const PMA_PPN_SHIFT: u8 = 12;
+const PMA_PPN_WIDTH: u8 = 22;
 const PMA_PPN_MASK: usize = ((1 << (PMA_PPN_SHIFT + PMA_PPN_WIDTH)) - 1) ^ PMA_OFFSET_MASK;
 
 impl From<usize> for PhysicalMemoryAddress {
@@ -46,10 +47,6 @@ impl Default for PhysicalMemoryAddress {
 impl PhysicalMemoryAddress {
     pub fn new() -> Self {
         Self(0)
-    }
-
-    pub fn offset(&self) -> usize {
-        self.0 & PMA_OFFSET_MASK
     }
 
     pub fn ppn(&self) -> PhysicalPageNumber {
@@ -81,31 +78,24 @@ impl PhysicalPageNumber {
         PageTableEntry::from(self.0 << PTE_PPN_SHIFT | flags)
     }
 
-    pub fn to_pma(&self, offset: usize) -> PhysicalMemoryAddress {
-        PhysicalMemoryAddress::from((self.0 << PMA_PPN_SHIFT) | offset)
+    pub fn to_pma(&self) -> PhysicalMemoryAddress {
+        PhysicalMemoryAddress::from(self.0 << PMA_PPN_SHIFT)
     }
 }
 
-// VMA have 4 fileds:
+// VMA have 2 fields:
 // 1. Page Offset field(0-11)
-// 2. VPN0: 3rd pagetable index filed(12-20)
-// 3. VPN1: 2nd pagetable index filed(21-29)
-// 4. VPN2: 1st pagetable index filed(30-38)
-const VPN0_SHIFT: usize = 0;
-const VPN1_SHIFT: usize = 9;
-const VPN2_SHIFT: usize = 18;
-const VPN_PART_WIDTH: usize = 9;
-const VPN_MASK: usize = (1 << (VPN_PART_WIDTH * 3)) - 1;
-const VPN0_MASK: usize = (1 << VPN_PART_WIDTH) - 1;
-const VPN1_MASK: usize = ((1 << (VPN1_SHIFT + VPN_PART_WIDTH)) - 1) ^ (VPN0_MASK);
-const VPN2_MASK: usize = ((1 << (VPN2_SHIFT + VPN_PART_WIDTH)) - 1) ^ (VPN0_MASK | VPN1_MASK);
-
+// 2. VPN filed(12-38)
+//      VPN0: 3rd pagetable index field(12-20)
+//      VPN1: 2nd pagetable index field(21-29)
+//      VPN2: 1st pagetable index field(30-38)
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualMemoryAddress(usize); // VMA
-const VMA_OFFSET_WIDTH: usize = 12;
-const VMA_OFFSET_MASK: usize = (1 << PMA_OFFSET_WIDTH) - 1;
-const VMA_VPN_SHIFT: usize = 12;
-const VMA_VPN_WIDTH: usize = 22;
+const VMA_OFFSET_WIDTH: u8 = 12;
+const VMA_OFFSET_MASK: usize = (1 << VMA_OFFSET_WIDTH) - 1;
+const VMA_VPN_SHIFT: u8 = 12;
+const VMA_VPN_WIDTH: u8 = 27;
+const VMA_VPN_PART_WIDTH: u8 = 9;
 const VMA_VPN_MASK: usize = ((1 << (PMA_PPN_SHIFT + PMA_PPN_WIDTH)) - 1) ^ PMA_OFFSET_MASK;
 
 impl From<usize> for VirtualMemoryAddress {
@@ -133,6 +123,7 @@ impl VirtualMemoryAddress {
         VirtualPageNumber::from((self.0 & VMA_VPN_MASK) >> VMA_VPN_SHIFT)
     }
 }
+
 #[derive(Debug, Clone, Copy)]
 pub struct VirtualPageNumber(usize); // VPN
 
@@ -153,20 +144,8 @@ impl VirtualPageNumber {
         Self(0)
     }
 
-    pub fn value(&self) -> usize {
-        self.0 & VPN_MASK
-    }
-
-    pub fn vpn0(&self) -> usize {
-        self.0 & VPN0_MASK
-    }
-
-    pub fn vpn1(&self) -> usize {
-        (self.0 & VPN1_MASK) >> VPN1_SHIFT
-    }
-
-    pub fn vpn2(&self) -> usize {
-        (self.0 & VPN2_MASK) >> VPN2_SHIFT
+    pub fn get_part(&self, idx: usize) -> usize {
+        (self.0 >> (VMA_VPN_PART_WIDTH as usize * idx)) & ((1 << VMA_VPN_PART_WIDTH) - 1)
     }
 }
 
@@ -179,6 +158,12 @@ pub struct PageTableEntry {
 impl From<usize> for PageTableEntry {
     fn from(pte: usize) -> Self {
         Self { bits: pte }
+    }
+}
+
+impl Default for PageTableEntry {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -285,29 +270,23 @@ impl PageTableFrame {
         self.root
     }
 
-    pub fn walk(&mut self, va: VirtualMemoryAddress) -> Result<&mut PageTableEntry, PageTableErr> {
+    pub fn walk(
+        &mut self,
+        va: VirtualMemoryAddress,
+        can_alloc: bool,
+    ) -> Result<&mut PageTableEntry, PageTableErr> {
         let vpn = va.vpn();
-        let vpn0 = vpn.vpn0();
-        let vpn1 = vpn.vpn1();
-        let vpn2 = vpn.vpn2();
-        let index: [usize; 2] = [vpn2, vpn1];
         let mut pgtb = self.root().0 as *mut PageTable;
 
-        if vpn0 < 512 && vpn1 < 512 && vpn2 < 512 {
-            info!(
-                "walking at 1st Pagetable[{:#x?}], 2nd Pagetable[{:#x?}], 3rd Pagetable[{:#x?}]",
-                vpn2, vpn1, vpn0
-            );
+        unsafe {
+            let mut idx = 0;
+            for i in (0..3).rev() {
+                idx = vpn.get_part(i);
 
-            unsafe {
-                for idx in index {
+                if i != 0 {
                     if (*pgtb).entrys[idx].is_v() {
-                        if idx != vpn0 {
-                            // info!("already map");
-                            pgtb =
-                                ((*pgtb).entrys[idx].ppn().to_pma(va.offset()).0) as *mut PageTable;
-                        }
-                    } else {
+                        pgtb = ((*pgtb).entrys[idx].ppn().to_pma().0) as *mut PageTable;
+                    } else if can_alloc {
                         warn!("create a new pagetable");
 
                         let page = alloc_page();
@@ -315,15 +294,16 @@ impl PageTableFrame {
 
                         warn!("set pte({:#x?}) in pagetable", tmp_pte);
 
-                        (*pgtb).entrys[vpn2].set(tmp_pte.bits());
+                        (*pgtb).entrys[idx].set(tmp_pte.bits());
                         self.frames.push(page);
-                        pgtb = ((*pgtb).entrys[vpn2].ppn().to_pma(va.offset()).0) as *mut PageTable;
+                        pgtb = ((*pgtb).entrys[idx].ppn().to_pma().0) as *mut PageTable;
+                    } else {
+                        return Err(PageTableErr::LackPageTable);
                     }
                 }
-                Ok(&mut (*pgtb).entrys[vpn0])
             }
-        } else {
-            Err(PageTableErr::OutofRange)
+
+            Ok(&mut (*pgtb).entrys[idx])
         }
     }
 
@@ -336,7 +316,7 @@ impl PageTableFrame {
         flags: usize,
     ) -> Result<&PageTableEntry, PageTableErr> {
         let ppn = pa.ppn();
-        match self.walk(va) {
+        match self.walk(va, true) {
             Ok(pte) => {
                 if pte.is_v() {
                     Err(PageTableErr::AlreadyMap)
@@ -350,16 +330,49 @@ impl PageTableFrame {
     }
 
     pub fn unmap(&mut self, va: VirtualMemoryAddress) {
-        if let Ok(pte) = self.walk(va) {
-            if pte.is_v() {
-                error!("it's never map");
-            } else {
-                pte.clear();
+        match self.walk(va, false) {
+            Ok(pte) => {
+                if pte.is_v() {
+                    error!("it's never map");
+                } else {
+                    pte.clear();
+                };
             }
+            Err(_) => error!("it's never map"),
+        }
+    }
+
+    pub fn mappages(
+        &mut self,
+        va: VirtualMemoryAddress,
+        pa: PhysicalMemoryAddress,
+        size: usize,
+        flags: usize,
+    ) {
+        let va = align_down!(va.0, PGSZ);
+        let pa = align_down!(pa.0, PGSZ);
+        let size = align_up!(size, PGSZ);
+
+        for i in (0..size).step_by(PGSZ) {
+            self.map(
+                VirtualMemoryAddress::from(va + i),
+                PhysicalMemoryAddress::from(pa + i),
+                flags,
+            );
+        }
+    }
+
+    pub fn unmappages(&mut self, va: VirtualMemoryAddress, size: usize) {
+        let va = VirtualMemoryAddress::from(align_down!(va.0, PGSZ));
+        let size = align_up!(size, PGSZ);
+
+        for i in (0..size).step_by(PGSZ) {
+            self.unmap(va);
         }
     }
 }
 
+// TODO: Use lazylock or oncelock
 pub struct LockedPageTableFrame(Mutex<PageTableFrame>);
 
 impl Default for LockedPageTableFrame {
@@ -386,6 +399,8 @@ pub fn pgtb_test() {
     let flags = PTE_FLAG_V | PTE_FLAG_R;
 
     info!("now map pa({:#x?}) to pa({:#x?})", va, pa);
+
+    info!("{:#x?}", pgtb.walk(va, false));
 
     match pgtb.map(va, pa, flags) {
         Ok(pte) => info!("pte: {:#x?}", pte),

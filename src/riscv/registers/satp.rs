@@ -1,6 +1,19 @@
 #![allow(unused)]
 use core::arch::asm;
 
+// SATP register have 3 fields:
+// 1. PPN filed (0-43)
+// 2. ASID filed(44-59)
+// 3. MODE filed(60-63)
+pub const SATP_PPN_WIDTH: u8 = 44;
+pub const SATP_PPN_MASK: usize = (1 << SATP_PPN_WIDTH) - 1;
+pub const SATP_ASID_SHIFT: u8 = 44;
+pub const SATP_ASID_WIDTH: u8 = 16;
+pub const SATP_ASID_MASK: usize = ((1 << (SATP_ASID_SHIFT + SATP_ASID_WIDTH)) - 1) ^ SATP_PPN_MASK;
+pub const SATP_MODE_SHIFT: u8 = 60;
+pub const SATP_MODE_WIDTH: u8 = 4;
+pub const SATP_MODE_MASK: usize = !0 ^ (SATP_ASID_MASK | SATP_PPN_MASK);
+
 // register satp(Supervisor Address Translation and Protection)
 pub struct Satp {
     pub bits: usize,

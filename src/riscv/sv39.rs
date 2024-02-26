@@ -1,14 +1,13 @@
-// SV39 entry have 2 fileds
+// SV39 entry have 2 fileds:
 // 1. Page Table Entry Flags filed(0-9)
 // 2. Physical Page Number filed(10-53)
 // and reserved 10 bits
-pub const PTE_FLAGS_SHIFT: u8 = 0;
-pub const PTE_FLAGS_WIDTH: u8 = 10;
-pub const PTE_FLAGS_MASK: usize = (1 << PTE_FLAGS_WIDTH) - 1;
-
 pub const PTE_PPN_SHIFT: u8 = 10;
 pub const PTE_PPN_WIDTH: u8 = 44;
 pub const PTE_PPN_MASK: usize = ((1 << (PTE_PPN_SHIFT + PTE_PPN_WIDTH + 1)) - 1) ^ PTE_FLAGS_MASK;
+pub const PTE_FLAGS_SHIFT: u8 = 0;
+pub const PTE_FLAGS_WIDTH: u8 = 10;
+pub const PTE_FLAGS_MASK: usize = (1 << PTE_FLAGS_WIDTH) - 1;
 
 pub mod pteflags {
     pub const PTE_FLAG_V: usize = 1;
