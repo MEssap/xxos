@@ -18,7 +18,7 @@ pub const SATP_MODE_MASK: usize = !0 ^ (SATP_ASID_MASK | SATP_PPN_MASK);
 
 // register satp(Supervisor Address Translation and Protection)
 pub struct Satp {
-    pub bits: usize,
+    bits: usize,
 }
 
 // satp mode
@@ -41,6 +41,10 @@ impl Satp {
 
     pub fn set(&mut self, bits: usize) {
         self.bits = bits;
+    }
+
+    pub fn bits(&self) -> usize {
+        self.bits
     }
 
     // Current address-translation scheme

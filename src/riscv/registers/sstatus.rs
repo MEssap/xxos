@@ -3,7 +3,7 @@ use core::arch::asm;
 
 /// regiter sstatus(Supervisor Status Register)
 pub struct Sstatus {
-    pub bits: usize,
+    bits: usize,
 }
 
 // Supervisor Previous Privilege Mode
@@ -14,6 +14,13 @@ pub enum SPP {
 }
 
 impl Sstatus {
+    pub fn bits(&self) -> usize {
+        self.bits
+    }
+
+    pub fn set(&mut self, bits: usize) {
+        self.bits = bits;
+    }
     // Supervisor Interrupt Enable
     #[inline]
     pub fn sie(&self) -> bool {

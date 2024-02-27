@@ -1,5 +1,7 @@
+use core::arch::asm;
+
 use alloc::boxed::Box;
-use xxos_log::{error, info, warn};
+use xxos_log::{error, info};
 
 use crate::{
     mm::{
@@ -8,7 +10,8 @@ use crate::{
         pm::def::{KERNBASE, PHYSTOP},
     },
     riscv::{
-        registers::satp::{write, Satp},
+        registers::satp,
+        registers::satp::Satp,
         sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X},
     },
 };
@@ -45,34 +48,37 @@ impl Kvm {
 
         // map text segment
         self.pagetables.mappages(
-            VirtualMemoryAddress::from(KERNBASE),
-            PhysicalMemoryAddress::from(KERNBASE),
-            (etext as usize) - KERNBASE,
+            VirtualMemoryAddress::from(stext as usize),
+            PhysicalMemoryAddress::from(stext as usize),
+            (etext as usize) - (stext as usize),
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_X | PTE_FLAG_V,
         );
 
-        for i in 0..10 {
-            match self
-                .pagetables
-                .walk(VirtualMemoryAddress::from(KERNBASE + i * PGSZ), false)
-            {
-                Ok(pte) => {
-                    error!("{:#x?}", pte);
-                }
-                Err(err) => error!("{:#x?}", err),
-            }
-        }
+        // map data segment
+        self.pagetables.mappages(
+            VirtualMemoryAddress::from(srodata as usize),
+            PhysicalMemoryAddress::from(srodata as usize),
+            (erodata as usize) - (srodata as usize),
+            PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
+        );
 
-        //// map Physical Memory
-        //self.pagetables.mappages(
-        //    VirtualMemoryAddress::from(etext as usize),
-        //    PhysicalMemoryAddress::from(etext as usize),
-        //    PHYSTOP - (etext as usize),
-        //    PTE_FLAG_V,
-        //);
+        self.pagetables.mappages(
+            VirtualMemoryAddress::from(sdata as usize),
+            PhysicalMemoryAddress::from(sdata as usize),
+            (edata as usize) - (sdata as usize),
+            PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
+        );
+
+        // map Physical Memory
+        self.pagetables.mappages(
+            VirtualMemoryAddress::from(etext as usize),
+            PhysicalMemoryAddress::from(etext as usize),
+            PHYSTOP - (etext as usize),
+            PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
+        );
 
         let satp = self.as_satp();
-        //write(satp.bits);
+        satp::write(satp.bits());
     }
 
     pub fn as_satp(&self) -> Satp {

@@ -9,7 +9,6 @@ use xxos::mm;
 use xxos::mm::vm::kvm::kvmmake;
 use xxos::opensbi::thread_start;
 use xxos::println;
-use xxos_log::warn;
 //use xxos::mm::pagetable::pgtb_test;
 //use xxos::proc::context_test;
 //use xxos::riscv::riscv_test;
