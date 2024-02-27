@@ -48,21 +48,22 @@ impl Sstatus {
     pub fn mxr(&self) -> bool {
         self.bits & (1 << 19) != 0
     }
-}
 
-#[inline]
-pub fn read() -> Sstatus {
-    let mut bits = 0;
-    unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
-    Sstatus { bits }
-}
+    #[inline]
+    pub fn read() -> Self {
+        let mut bits = 0;
+        unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
 
-#[inline]
-pub fn write(bits: usize) {
-    unsafe { asm!("csrw sstatus, {}", in(reg) bits) }
-}
+        Self { bits }
+    }
 
-#[inline]
-pub fn clear(bits: usize) {
-    unsafe { asm!("csrc sstatus, {}", in(reg) bits) }
+    #[inline]
+    pub fn write(&self) {
+        unsafe { asm!("csrw sstatus, {}", in(reg) self.bits) }
+    }
+
+    #[inline]
+    pub fn clear(&self) {
+        unsafe { asm!("csrc sstatus, {}", in(reg) self.bits) }
+    }
 }

@@ -81,21 +81,21 @@ impl Satp {
     pub fn set_ppn(&mut self, ppn: PhysicalPageNumber) {
         self.bits |= ppn.0;
     }
-}
 
-#[inline]
-pub fn read() -> Satp {
-    let mut bits = 0;
-    unsafe { asm!("csrr {}, satp", out(reg) bits) }
-    Satp { bits }
-}
+    #[inline]
+    pub fn read() -> Self {
+        let mut bits = 0;
+        unsafe { asm!("csrr {}, satp", out(reg) bits) }
+        Self { bits }
+    }
 
-#[inline]
-pub fn write(bits: usize) {
-    unsafe { asm!("csrw satp, {}", in(reg) bits) }
-}
+    #[inline]
+    pub fn write(&self) {
+        unsafe { asm!("csrw satp, {}", in(reg) self.bits) }
+    }
 
-#[inline]
-pub fn clear(bits: usize) {
-    unsafe { asm!("csrc satp, {}", in(reg) bits) }
+    #[inline]
+    pub fn clear(&self) {
+        unsafe { asm!("csrc satp, {}", in(reg) self.bits) }
+    }
 }

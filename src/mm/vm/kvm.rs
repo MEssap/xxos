@@ -1,6 +1,7 @@
 use core::arch::asm;
 
 use alloc::boxed::Box;
+use xx_mutex_lock::OnceLock;
 use xxos_log::{error, info};
 
 use crate::{
@@ -78,7 +79,7 @@ impl Kvm {
         );
 
         let satp = self.as_satp();
-        satp::write(satp.bits());
+        satp.write();
     }
 
     pub fn as_satp(&self) -> Satp {
@@ -87,6 +88,24 @@ impl Kvm {
         satp.set_mode(crate::riscv::registers::satp::Mode::Sv39);
         satp.set_ppn(ppn);
         satp
+    }
+}
+
+pub struct LockedKvm(OnceLock<Kvm>);
+
+impl Default for LockedKvm {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl LockedKvm {
+    pub const fn new() -> Self {
+        Self(OnceLock::new())
+    }
+
+    pub fn get_or_init(&self) {
+        self.0.get_or_init(kvmmake);
     }
 }
 

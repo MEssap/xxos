@@ -6,20 +6,20 @@ pub mod registers;
 pub mod sv39;
 
 pub fn riscv_test() {
-    use registers::{satp, sstatus};
+    use registers::{satp::Satp, sstatus::Sstatus};
 
-    let mut satp = satp::read();
-    let mut sstatus = sstatus::read();
+    let mut satp = Satp::read();
+    let mut sstatus = Sstatus::read();
 
     satp.set(0xdeadbeef);
     sstatus.set(0xdeadbeef);
-    satp::write(satp.bits());
-    sstatus::write(satp.bits());
+    satp.write();
+    sstatus.write();
 
     satp.set(0);
     sstatus.set(0);
-    satp = satp::read();
-    sstatus = sstatus::read();
+    satp = Satp::read();
+    sstatus = Sstatus::read();
 
     if satp.bits() != 0xdeadbeef {
         error!("satp wrong");

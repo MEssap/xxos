@@ -26,7 +26,7 @@ impl Uvm {
 
     pub fn init(&self) {
         let satp = Satp::new();
-        satp::write(satp.bits());
+        satp.write();
     }
 
     pub fn as_satp(&self) -> Satp {

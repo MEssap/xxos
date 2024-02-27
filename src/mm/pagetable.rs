@@ -2,6 +2,7 @@
 use super::{
     def::PGSZ,
     page_allocator::{alloc_page, FrameAllocator, PageFrame},
+    vm::kvm::kvmmake,
 };
 use crate::{
     error,
@@ -9,7 +10,6 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use core::{mem::size_of, ops::DerefMut};
-use xx_mutex_lock::{Mutex, MutexGuard};
 use xxos_alloc::{align_down, align_up};
 use xxos_log::{error, info};
 
@@ -371,46 +371,4 @@ impl PageTableFrame {
             self.unmap(va);
         }
     }
-}
-
-// TODO: Use lazylock or oncelock
-pub struct LockedPageTableFrame(Mutex<PageTableFrame>);
-
-impl Default for LockedPageTableFrame {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LockedPageTableFrame {
-    pub fn new() -> Self {
-        Self(Mutex::new(PageTableFrame::new()))
-    }
-}
-
-pub fn pgtb_test() {
-    info!("======== pagetable test start ========");
-    //let mut pgtb = LockedPageTableFrame::new();
-    let mut pgtb = PageTableFrame::new();
-
-    info!("pagetableframe created: {:#x?}", pgtb);
-
-    let pa = pgtb.root();
-    let va = VirtualMemoryAddress::from(pgtb.root().0);
-    let flags = PTE_FLAG_V | PTE_FLAG_R;
-
-    info!("now map pa({:#x?}) to pa({:#x?})", va, pa);
-
-    info!("{:#x?}", pgtb.walk(va, false));
-
-    match pgtb.map(va, pa, flags) {
-        Ok(pte) => info!("pte: {:#x?}", pte),
-        Err(e) => error!("{:#x?}", e),
-    }
-    match pgtb.map(va, pa, flags) {
-        Ok(pte) => info!("pte: {:#x?}", pte),
-        Err(e) => error!("{:#x?}", e),
-    }
-
-    info!("======== pagetable test end ========");
 }

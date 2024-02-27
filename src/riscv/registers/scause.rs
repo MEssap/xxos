@@ -19,13 +19,14 @@ impl Scause {
     pub fn code(&self) -> usize {
         self.bits & !(1 << (size_of::<usize>() * 8 - 1))
     }
-}
 
-#[inline]
-pub fn read() -> Scause {
-    let bits: usize;
-    unsafe {
-        asm!("csrr {}, scause", out(reg) bits);
+    #[inline]
+    pub fn read() -> Self {
+        let bits: usize;
+        unsafe {
+            asm!("csrr {}, scause", out(reg) bits);
+        }
+
+        Self { bits }
     }
-    Scause { bits }
 }
