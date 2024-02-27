@@ -1,6 +1,8 @@
 #![allow(unused)]
 use core::arch::asm;
 
+use crate::mm::pagetable::PhysicalPageNumber;
+
 // SATP register have 3 fields:
 // 1. PPN filed (0-43)
 // 2. ASID filed(44-59)
@@ -26,11 +28,25 @@ pub enum Mode {
     Sv48 = 0b1001, // Page-based 48-bit virtual addressing
 }
 
+impl Default for Satp {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Satp {
+    pub fn new() -> Self {
+        Self { bits: 0 }
+    }
+
+    pub fn set(&mut self, bits: usize) {
+        self.bits = bits;
+    }
+
     // Current address-translation scheme
     #[inline]
     pub fn mode(&self) -> Mode {
-        match self.bits >> 60 {
+        match (self.bits & SATP_MODE_MASK) >> SATP_MODE_SHIFT {
             0 => Mode::Bare,
             8 => Mode::Sv39,
             9 => Mode::Sv48,
@@ -38,16 +54,28 @@ impl Satp {
         }
     }
 
+    pub fn set_mode(&mut self, mode: Mode) {
+        self.bits |= ((mode as usize) << SATP_MODE_SHIFT);
+    }
+
     // Address Space IDentifier
     #[inline]
     pub fn asid(&self) -> usize {
-        self.bits >> 44 & 0xFFFF // bits 44-59
+        (self.bits & SATP_ASID_MASK) >> SATP_ASID_SHIFT // bits 44-59
+    }
+
+    pub fn set_asid(&mut self, asid: usize) {
+        self.bits |= (asid << SATP_ASID_SHIFT);
     }
 
     // Physical Page Number
     #[inline]
-    pub fn ppn(&self) -> usize {
-        self.bits & 0xFFF_FFFF_FFFF // bits 0-43
+    pub fn ppn(&self) -> PhysicalPageNumber {
+        PhysicalPageNumber::from(self.bits & SATP_PPN_MASK) // bits 0-43
+    }
+
+    pub fn set_ppn(&mut self, ppn: PhysicalPageNumber) {
+        self.bits |= ppn.0;
     }
 }
 

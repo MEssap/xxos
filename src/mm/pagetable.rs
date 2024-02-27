@@ -33,8 +33,8 @@ const PMA_PPN_WIDTH: u8 = 22;
 const PMA_PPN_MASK: usize = ((1 << (PMA_PPN_SHIFT + PMA_PPN_WIDTH)) - 1) ^ PMA_OFFSET_MASK;
 
 impl From<usize> for PhysicalMemoryAddress {
-    fn from(ppn: usize) -> Self {
-        Self(ppn)
+    fn from(pa: usize) -> Self {
+        Self(pa)
     }
 }
 
@@ -55,7 +55,7 @@ impl PhysicalMemoryAddress {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct PhysicalPageNumber(usize); // PPN
+pub struct PhysicalPageNumber(pub usize); // PPN
 
 impl From<usize> for PhysicalPageNumber {
     fn from(ppn: usize) -> Self {
@@ -99,8 +99,8 @@ const VMA_VPN_PART_WIDTH: u8 = 9;
 const VMA_VPN_MASK: usize = ((1 << (PMA_PPN_SHIFT + PMA_PPN_WIDTH)) - 1) ^ PMA_OFFSET_MASK;
 
 impl From<usize> for VirtualMemoryAddress {
-    fn from(vpn: usize) -> Self {
-        Self(vpn)
+    fn from(va: usize) -> Self {
+        Self(va)
     }
 }
 
@@ -349,17 +349,20 @@ impl PageTableFrame {
         size: usize,
         flags: usize,
     ) {
+        warn!("======== mappages start ========");
         let va = align_down!(va.0, PGSZ);
         let pa = align_down!(pa.0, PGSZ);
         let size = align_up!(size, PGSZ);
 
         for i in (0..size).step_by(PGSZ) {
+            warn!("map {:#x?} to {:#x?}", va + i, pa + i);
             self.map(
                 VirtualMemoryAddress::from(va + i),
                 PhysicalMemoryAddress::from(pa + i),
                 flags,
             );
         }
+        warn!("======== mappages end ========");
     }
 
     pub fn unmappages(&mut self, va: VirtualMemoryAddress, size: usize) {
