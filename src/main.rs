@@ -6,12 +6,15 @@ use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 use xxos::console::Log;
 use xxos::mm;
+use xxos::mm::vm::kvm::LockedKvm;
 use xxos::opensbi::thread_start;
 use xxos::println;
-use xxos::proc::context_test;
-use xxos::riscv::riscv_test;
+//use xxos::mm::pagetable::pgtb_test;
+//use xxos::proc::context_test;
+//use xxos::riscv::riscv_test;
 
 static STARTED: AtomicBool = AtomicBool::new(false);
+static KVM: LockedKvm = LockedKvm::new();
 extern crate alloc;
 global_asm!(include_str!("entry.s"));
 
@@ -24,14 +27,15 @@ fn main() {
     if thread_id == 0 {
         clear_bss();
 
-        xxos_log::init_log(&Log, xxos_log::Level::INFO); // 初始化log
+        xxos_log::init_log(&Log, xxos_log::Level::WARN); // 初始化log
 
         // 初始化内存
         mm::pm::heap_init();
+        KVM.get_or_init();
 
         // test
-        context_test();
-        riscv_test();
+        //context_test();
+        //riscv_test();
         let mut vec: Vec<u8> = alloc::vec::Vec::with_capacity(0x5000);
         vec.push(1);
         println!("vec {:?}", vec);

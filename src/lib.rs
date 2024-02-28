@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(never_type)]
 #![feature(panic_info_message)]
+#![feature(new_uninit)]
 
 pub mod console;
 pub mod error;
@@ -13,3 +14,5 @@ pub mod riscv;
 pub mod sched;
 pub mod syscall;
 pub mod trap;
+
+extern crate alloc;
