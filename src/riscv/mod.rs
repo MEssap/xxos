@@ -1,3 +1,4 @@
+use crate::riscv::registers::RegisterOperator;
 use xxos_log::{error, info};
 
 pub mod cpu;

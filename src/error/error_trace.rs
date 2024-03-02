@@ -1,6 +1,6 @@
+use alloc::string::{String, ToString};
 use core::panic::Location;
 
-use alloc::string::{String, ToString};
 pub struct ErrorTrace {
     pub message: String,
     file: String,

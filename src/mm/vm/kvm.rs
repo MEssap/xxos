@@ -1,16 +1,14 @@
-use alloc::boxed::Box;
-use xx_mutex_lock::OnceLock;
-use xxos_log::info;
 use crate::{
-    mm::{
-        pagetable::PageTableFrame,
-        pm::def::HEAP_TOP,
-    },
+    mm::{pagetable_frame::PageTableFrame, pm::def::HEAP_TOP},
     riscv::{
         registers::satp::Satp,
+        registers::RegisterOperator,
         sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X},
     },
 };
+use alloc::boxed::Box;
+use xx_mutex_lock::OnceLock;
+use xxos_log::info;
 
 // Kernel Virtual Memory
 pub struct Kvm {
@@ -70,18 +68,23 @@ impl Kvm {
             HEAP_TOP - (edata as usize),
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
         );
-        //map kernel stack
 
-        let satp = self.as_satp();
-        satp.write();
+        // map kernel stack
+
+        self.write_satp();
     }
 
     pub fn as_satp(&self) -> Satp {
         let ppn = self.pagetables.root().to_ppn();
         let mut satp = Satp::new();
         satp.set_mode(crate::riscv::registers::satp::Mode::Sv39);
-        satp.set_ppn(ppn);
+        satp.set_ppn(ppn.0);
         satp
+    }
+
+    pub fn write_satp(&self) {
+        let satp = self.as_satp();
+        satp.write();
     }
 }
 
@@ -98,8 +101,9 @@ impl LockedKvm {
         Self(OnceLock::new())
     }
 
-    pub fn get_or_init(&self) {
-        self.0.get_or_init(kvmmake);
+    pub fn install_kvm(&self) {
+        let data = self.0.get_or_init(kvmmake);
+        data.write_satp();
     }
 }
 

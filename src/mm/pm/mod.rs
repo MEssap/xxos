@@ -1,8 +1,8 @@
 pub mod def;
-use xxos_alloc::LockedSlab;
-use xxos_log::info;
 
 use crate::mm::pm::def::HEAP_TOP;
+use xxos_alloc::LockedSlab;
+use xxos_log::info;
 
 // 定义新的分配器
 #[global_allocator]

@@ -1,4 +1,4 @@
-#![allow(unused)]
+use super::RegisterOperator;
 use core::arch::asm;
 
 /// regiter sstatus(Supervisor Status Register)
@@ -48,22 +48,29 @@ impl Sstatus {
     pub fn mxr(&self) -> bool {
         self.bits & (1 << 19) != 0
     }
+}
 
+impl RegisterOperator for Sstatus {
     #[inline]
-    pub fn read() -> Self {
-        let mut bits = 0;
+    fn read() -> Self {
+        let bits: usize;
         unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
 
         Self { bits }
     }
 
     #[inline]
-    pub fn write(&self) {
+    fn write(&self) {
         unsafe { asm!("csrw sstatus, {}", in(reg) self.bits) }
     }
 
     #[inline]
-    pub fn clear(&self) {
-        unsafe { asm!("csrc sstatus, {}", in(reg) self.bits) }
+    fn _clear(&self, bits: usize) {
+        unsafe { asm!("csrc sstatus, {}", in(reg) bits) }
+    }
+
+    #[inline]
+    fn _set(&self, bits: usize) {
+        unsafe { asm!("csrs sstatus, {}", in(reg) bits) }
     }
 }

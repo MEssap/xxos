@@ -15,5 +15,6 @@ pub mod riscv;
 pub mod sched;
 pub mod syscall;
 pub mod trap;
+pub mod utils;
 
 extern crate alloc;

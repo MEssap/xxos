@@ -1,4 +1,3 @@
-#![allow(unused)]
 mod def;
 
 use core::arch::asm;

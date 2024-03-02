@@ -1,9 +1,6 @@
 extern crate alloc;
+use super::{def::PGSZ, pagetable_frame::PhysicalMemoryAddress};
 use alloc::boxed::Box;
-use super::{
-    def::PGSZ,
-    pagetable::PhysicalMemoryAddress,
-};
 
 pub trait FrameAllocator {
     fn alloc() -> Self;

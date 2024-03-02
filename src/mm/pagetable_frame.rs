@@ -1,15 +1,11 @@
 use super::{
     def::PGSZ,
-    page_allocator::{alloc_page,PageFrame},
+    page_frame::{alloc_page, PageFrame},
 };
 use crate::riscv::sv39::{pteflags::*, PTE_PPN_MASK, PTE_PPN_SHIFT};
 
 use alloc::{vec, vec::Vec};
-use core::{
-    fmt::Display,
-    mem::size_of,
-    ops::IndexMut,
-};
+use core::{fmt::Display, mem::size_of, ops::IndexMut};
 use xxos_alloc::{align_down, align_up};
 use xxos_log::{error, info};
 #[derive(Debug)]
@@ -42,7 +38,7 @@ impl PhysicalMemoryAddress {
     pub fn to_ppn(&self) -> PhysicalPageNumber {
         ((self.0 & PMA_PPN_MASK) >> PMA_PPN_SHIFT).into()
     }
-    pub fn to_pte(&self,flag: usize) -> PageTableEntry{
+    pub fn to_pte(&self, flag: usize) -> PageTableEntry {
         let bits = (self.0 >> 12 << 10) | flag;
         PageTableEntry { bits }
     }
@@ -251,7 +247,7 @@ impl PageTableFrame {
     pub fn root(&self) -> PhysicalMemoryAddress {
         self.root
     }
-    
+
     pub fn get_mut_pagetable(&mut self) -> &'static mut PageTable {
         unsafe { (self.root().0 as *mut PageTable).as_mut().unwrap() }
     }
@@ -265,15 +261,15 @@ impl PageTableFrame {
         let mut idx = 0;
         for level in (0..3).rev() {
             idx = va.get_pagetable_index(level);
-            if level == 0 {break;}
+            if level == 0 {
+                break;
+            }
             let pte = pgtb.get_index(idx);
             if pte.is_v() {
                 pgtb = pte.get_mut_pagetable();
             } else if can_alloc {
                 let page = alloc_page();
-                let new_page = page
-                    .to_pma()
-                    .to_pte(PTE_FLAG_V);
+                let new_page = page.to_pma().to_pte(PTE_FLAG_V);
                 pte.set(new_page);
                 self.save_page(page);
                 pgtb = pte.get_mut_pagetable();
@@ -294,10 +290,10 @@ impl PageTableFrame {
     ) -> Result<&PageTableEntry, PageTableErr> {
         match self.walk(va, true)? {
             pte if pte.is_v() => Err(PageTableErr::AlreadyMap),
-            pte  => {
+            pte => {
                 pte.set(pa.to_pte(flags));
                 Ok(pte)
-            } 
+            }
         }
     }
 
@@ -326,15 +322,10 @@ impl PageTableFrame {
         let pa = align_down!(pa.0, PGSZ);
         let size = align_up!(size, PGSZ);
         let end = pa + size;
-        (start..end).step_by(PGSZ).for_each(|address|{
-            match self.map(
-                (address).into(), 
-                (address).into(), 
-                flags
-            ) {
-                Ok(_) => {},
-                Err(e) => panic!("{:?}",e)
-                
+        (start..end).step_by(PGSZ).for_each(|address| {
+            match self.map((address).into(), (address).into(), flags) {
+                Ok(_) => {}
+                Err(e) => panic!("{:?}", e),
             };
         });
         info!("======== mappages end ========");

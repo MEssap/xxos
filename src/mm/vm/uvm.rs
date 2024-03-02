@@ -2,8 +2,8 @@ use alloc::boxed::Box;
 use xxos_log::info;
 
 use crate::{
-    mm::pagetable::PageTableFrame,
-    riscv::registers::satp::Satp,
+    mm::pagetable_frame::PageTableFrame,
+    riscv::registers::{satp::Satp, RegisterOperator},
 };
 
 // User Virtual Memory
@@ -33,7 +33,7 @@ impl Uvm {
         let ppn = self.pagetables.root().to_ppn();
         let mut satp = Satp::new();
         satp.set_mode(crate::riscv::registers::satp::Mode::Sv39);
-        satp.set_ppn(ppn);
+        satp.set_ppn(ppn.0);
         satp
     }
 }

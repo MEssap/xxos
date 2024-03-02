@@ -1,7 +1,5 @@
-#![allow(unused)]
+use super::RegisterOperator;
 use core::arch::asm;
-
-use crate::mm::pagetable::PhysicalPageNumber;
 
 // SATP register have 3 fields:
 // 1. PPN filed (0-43)
@@ -59,7 +57,7 @@ impl Satp {
     }
 
     pub fn set_mode(&mut self, mode: Mode) {
-        self.bits |= ((mode as usize) << SATP_MODE_SHIFT);
+        self.bits |= (mode as usize) << SATP_MODE_SHIFT
     }
 
     // Address Space IDentifier
@@ -69,33 +67,40 @@ impl Satp {
     }
 
     pub fn set_asid(&mut self, asid: usize) {
-        self.bits |= (asid << SATP_ASID_SHIFT);
+        self.bits |= asid << SATP_ASID_SHIFT
     }
 
     // Physical Page Number
     #[inline]
-    pub fn ppn(&self) -> PhysicalPageNumber {
-        PhysicalPageNumber::from(self.bits & SATP_PPN_MASK) // bits 0-43
+    pub fn ppn(&self) -> usize {
+        self.bits & SATP_PPN_MASK // bits 0-43
     }
 
-    pub fn set_ppn(&mut self, ppn: PhysicalPageNumber) {
-        self.bits |= ppn.0;
+    pub fn set_ppn(&mut self, ppn: usize) {
+        self.bits |= ppn;
     }
+}
 
+impl RegisterOperator for Satp {
     #[inline]
-    pub fn read() -> Self {
-        let mut bits = 0;
+    fn read() -> Self {
+        let mut bits: usize;
         unsafe { asm!("csrr {}, satp", out(reg) bits) }
         Self { bits }
     }
 
     #[inline]
-    pub fn write(&self) {
+    fn write(&self) {
         unsafe { asm!("csrw satp, {}", in(reg) self.bits) }
     }
 
     #[inline]
-    pub fn clear(&self) {
-        unsafe { asm!("csrc satp, {}", in(reg) self.bits) }
+    fn _clear(&self, bits: usize) {
+        unsafe { asm!("csrc satp, {}", in(reg) bits) }
+    }
+
+    #[inline]
+    fn _set(&self, bits: usize) {
+        unsafe { asm!("csrs satp, {}", in(reg) bits) }
     }
 }
