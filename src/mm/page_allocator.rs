@@ -1,10 +1,9 @@
 extern crate alloc;
-
-use crate::mm::pagetable::PhysicalPageNumber;
 use alloc::boxed::Box;
-use xxos_log::error;
-
-use super::pagetable::PhysicalMemoryAddress;
+use super::{
+    def::PGSZ,
+    pagetable::PhysicalMemoryAddress,
+};
 
 pub trait FrameAllocator {
     fn alloc() -> Self;
@@ -22,7 +21,7 @@ impl FrameAllocator for PageFrame {
         let address = unsafe { address.assume_init() };
         let address = Box::leak(address);
         Self {
-            address: PhysicalMemoryAddress::from(address as *const _ as usize),
+            address: (address as *const _ as usize).into(),
         }
     }
 }
@@ -36,12 +35,12 @@ impl From<PhysicalMemoryAddress> for PageFrame {
 impl Drop for PageFrame {
     fn drop(&mut self) {
         // 重新建立一个Box，并在作用域结束时释放
-        let _: Box<[u8; 4096]> = unsafe { Box::from_raw(self.address.0 as *mut _) };
+        let _a: Box<[u8; PGSZ]> = unsafe { Box::from_raw(self.address.0 as *mut _) };
     }
 }
 
 impl PageFrame {
-    pub fn address(&self) -> PhysicalMemoryAddress {
+    pub fn to_pma(&self) -> PhysicalMemoryAddress {
         self.address
     }
 }

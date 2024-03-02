@@ -1,4 +1,5 @@
 #![no_std]
+#![no_main]
 #![feature(never_type)]
 #![feature(panic_info_message)]
 #![feature(new_uninit)]
