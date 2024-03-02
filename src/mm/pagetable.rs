@@ -1,30 +1,30 @@
-#![allow(unused)]
 use super::{
     def::PGSZ,
-    page_allocator::{alloc_page, FrameAllocator, PageFrame},
-    vm::kvm::kvmmake,
+    page_allocator::{alloc_page,PageFrame},
 };
-use crate::{
-    error,
-    riscv::sv39::{pteflags::*, PTE_PPN_MASK, PTE_PPN_SHIFT},
+use crate::riscv::sv39::{pteflags::*, PTE_PPN_MASK, PTE_PPN_SHIFT};
+
+use alloc::{vec, vec::Vec};
+use core::{
+    fmt::Display,
+    mem::size_of,
+    ops::IndexMut,
 };
-use alloc::{boxed::Box, vec, vec::Vec};
-use core::{mem::size_of, ops::DerefMut};
 use xxos_alloc::{align_down, align_up};
 use xxos_log::{error, info};
-
 #[derive(Debug)]
 pub enum PageTableErr {
     AlreadyMap,
     NeverMap,
     Unknown,
-    LackPageTable,
+    NotFound,
 }
 
 // PMA have 2 fields:
 // 1. Page Offset field(0-11)
 // 2. PPN field(12-49)
-#[derive(Debug, Clone, Copy)]
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct PhysicalMemoryAddress(pub usize); // PMA
 const PMA_OFFSET_WIDTH: u8 = 12;
 const PMA_OFFSET_MASK: usize = (1 << PMA_OFFSET_WIDTH) - 1;
@@ -38,23 +38,27 @@ impl From<usize> for PhysicalMemoryAddress {
     }
 }
 
-impl Default for PhysicalMemoryAddress {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl PhysicalMemoryAddress {
-    pub fn new() -> Self {
-        Self(0)
+    pub fn to_ppn(&self) -> PhysicalPageNumber {
+        ((self.0 & PMA_PPN_MASK) >> PMA_PPN_SHIFT).into()
+    }
+    pub fn to_pte(&self,flag: usize) -> PageTableEntry{
+        let bits = (self.0 >> 12 << 10) | flag;
+        PageTableEntry { bits }
     }
 
-    pub fn ppn(&self) -> PhysicalPageNumber {
-        PhysicalPageNumber::from((self.0 & PMA_PPN_MASK) >> PMA_PPN_SHIFT)
+    pub fn get_mut_pagetable(&self) -> &'static mut PageTable {
+        unsafe { (self.0 as *mut PageTable).as_mut().unwrap() }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+impl Display for PhysicalMemoryAddress {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "pa: {:#x}", self.0)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
 pub struct PhysicalPageNumber(pub usize); // PPN
 
 impl From<usize> for PhysicalPageNumber {
@@ -63,17 +67,7 @@ impl From<usize> for PhysicalPageNumber {
     }
 }
 
-impl Default for PhysicalPageNumber {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl PhysicalPageNumber {
-    pub fn new() -> Self {
-        Self(0)
-    }
-
     pub fn to_pte(&self, flags: usize) -> PageTableEntry {
         PageTableEntry::from(self.0 << PTE_PPN_SHIFT | flags)
     }
@@ -83,14 +77,14 @@ impl PhysicalPageNumber {
     }
 }
 
-// VMA have 2 fields:
-// 1. Page Offset field(0-11)
-// 2. VPN filed(12-38)
-//      VPN0: 3rd pagetable index field(12-20)
-//      VPN1: 2nd pagetable index field(21-29)
-//      VPN2: 1st pagetable index field(30-38)
-#[derive(Debug, Clone, Copy)]
-pub struct VirtualMemoryAddress(usize); // VMA
+/// VMA have 2 fields:
+/// 1. Page Offset field(0-11)
+/// 2. VPN filed(12-38)
+///      VPN0: 3rd pagetable index field(12-20)
+///      VPN1: 2nd pagetable index field(21-29)
+///      VPN2: 1st pagetable index field(30-38)
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VirtualMemoryAddress(pub usize); // VMA
 const VMA_OFFSET_WIDTH: u8 = 12;
 const VMA_OFFSET_MASK: usize = (1 << VMA_OFFSET_WIDTH) - 1;
 const VMA_VPN_SHIFT: u8 = 12;
@@ -104,23 +98,17 @@ impl From<usize> for VirtualMemoryAddress {
     }
 }
 
-impl Default for VirtualMemoryAddress {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl VirtualMemoryAddress {
-    pub fn new() -> Self {
-        Self(0)
-    }
-
     pub fn vpn(&self) -> VirtualPageNumber {
         VirtualPageNumber::from((self.0 & VMA_VPN_MASK) >> VMA_VPN_SHIFT)
     }
+
+    pub fn get_pagetable_index(&self, level: usize) -> usize {
+        (self.0 >> (12 + 9 * level)) & 0x1ff
+    }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct VirtualPageNumber(usize); // VPN
 
 impl From<usize> for VirtualPageNumber {
@@ -129,24 +117,14 @@ impl From<usize> for VirtualPageNumber {
     }
 }
 
-impl Default for VirtualPageNumber {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl VirtualPageNumber {
-    pub fn new() -> Self {
-        Self(0)
-    }
-
     pub fn get_pagetable_index(&self, level: usize) -> usize {
         (self.0 >> (VMA_VPN_PART_WIDTH as usize * level)) & ((1 << VMA_VPN_PART_WIDTH) - 1)
     }
 }
 
-#[repr(C)]
-#[derive(Debug)]
+#[repr(transparent)]
+#[derive(Debug, Default)]
 pub struct PageTableEntry {
     bits: usize,
 }
@@ -157,31 +135,29 @@ impl From<usize> for PageTableEntry {
     }
 }
 
-impl Default for PageTableEntry {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl PageTableEntry {
-    #[inline]
-    pub fn new() -> Self {
-        Self { bits: 0 }
-    }
-
     #[inline]
     pub fn bits(&self) -> usize {
         self.bits
     }
 
-    #[inline]
-    pub fn ppn(&self) -> PhysicalPageNumber {
-        PhysicalPageNumber::from((self.bits & PTE_PPN_MASK) >> PTE_PPN_SHIFT)
+    pub fn get_mut_pagetable(&self) -> &'static mut PageTable {
+        self.to_pma().get_mut_pagetable()
     }
 
     #[inline]
-    pub fn set(&mut self, pte: usize) {
-        self.bits = pte;
+    pub fn to_ppn(&self) -> PhysicalPageNumber {
+        ((self.bits & PTE_PPN_MASK) >> PTE_PPN_SHIFT).into()
+    }
+
+    #[inline]
+    pub fn to_pma(&self) -> PhysicalMemoryAddress {
+        ((self.bits >> 10) << 12).into()
+    }
+
+    #[inline]
+    pub fn set(&mut self, pte: Self) {
+        self.bits = pte.bits;
     }
 
     #[inline]
@@ -241,6 +217,12 @@ pub struct PageTable {
     entrys: [PageTableEntry; PGSZ / size_of::<PageTableEntry>()],
 }
 
+impl PageTable {
+    pub fn get_index(&mut self, index: usize) -> &mut PageTableEntry {
+        self.entrys.index_mut(index)
+    }
+}
+
 #[derive(Debug)]
 pub struct PageTableFrame {
     root: PhysicalMemoryAddress,
@@ -256,16 +238,22 @@ impl Default for PageTableFrame {
 impl PageTableFrame {
     pub fn new() -> Self {
         let page = alloc_page();
-        error!("pagetableframe created: {:#x?}", page);
-        error!("pagetableframe ppn: {:#x?}", page.address().ppn());
         Self {
-            root: page.address(),
+            root: page.to_pma(),
             frames: vec![page],
         }
     }
 
+    pub fn save_page(&mut self, page: PageFrame) {
+        self.frames.push(page)
+    }
+
     pub fn root(&self) -> PhysicalMemoryAddress {
         self.root
+    }
+    
+    pub fn get_mut_pagetable(&mut self) -> &'static mut PageTable {
+        unsafe { (self.root().0 as *mut PageTable).as_mut().unwrap() }
     }
 
     pub fn walk(
@@ -273,36 +261,27 @@ impl PageTableFrame {
         va: VirtualMemoryAddress,
         can_alloc: bool,
     ) -> Result<&mut PageTableEntry, PageTableErr> {
-        let vpn = va.vpn();
-        let mut pgtb = self.root().0 as *mut PageTable;
-
-        unsafe {
-            let mut idx = 0;
-            for i in (0..3).rev() {
-                idx = vpn.get_pagetable_index(i);
-
-                if i != 0 {
-                    if (*pgtb).entrys[idx].is_v() {
-                        pgtb = ((*pgtb).entrys[idx].ppn().to_pma().0) as *mut PageTable;
-                    } else if can_alloc {
-                        info!("create a new pagetable");
-
-                        let page = alloc_page();
-                        let pte = page.address().ppn().to_pte(PTE_FLAG_V);
-
-                        info!("set pte({:#x?}) in pagetable", pte);
-
-                        (*pgtb).entrys[idx].set(pte.bits());
-                        self.frames.push(page);
-                        pgtb = ((*pgtb).entrys[idx].ppn().to_pma().0) as *mut PageTable;
-                    } else {
-                        return Err(PageTableErr::LackPageTable);
-                    }
-                }
+        let mut pgtb = self.get_mut_pagetable();
+        let mut idx = 0;
+        for level in (0..3).rev() {
+            idx = va.get_pagetable_index(level);
+            if level == 0 {break;}
+            let pte = pgtb.get_index(idx);
+            if pte.is_v() {
+                pgtb = pte.get_mut_pagetable();
+            } else if can_alloc {
+                let page = alloc_page();
+                let new_page = page
+                    .to_pma()
+                    .to_pte(PTE_FLAG_V);
+                pte.set(new_page);
+                self.save_page(page);
+                pgtb = pte.get_mut_pagetable();
+            } else {
+                return Err(PageTableErr::NotFound);
             }
-
-            Ok(&mut (*pgtb).entrys[idx])
         }
+        Ok(pgtb.get_index(idx))
     }
 
     // VPN map to PPN
@@ -313,17 +292,12 @@ impl PageTableFrame {
         pa: PhysicalMemoryAddress,
         flags: usize,
     ) -> Result<&PageTableEntry, PageTableErr> {
-        let ppn = pa.ppn();
-        match self.walk(va, true) {
-            Ok(pte) => {
-                if pte.is_v() {
-                    Err(PageTableErr::AlreadyMap)
-                } else {
-                    pte.set(ppn.to_pte(flags).bits());
-                    Ok(pte)
-                }
-            }
-            Err(err) => Err(err),
+        match self.walk(va, true)? {
+            pte if pte.is_v() => Err(PageTableErr::AlreadyMap),
+            pte  => {
+                pte.set(pa.to_pte(flags));
+                Ok(pte)
+            } 
         }
     }
 
@@ -348,27 +322,29 @@ impl PageTableFrame {
         flags: usize,
     ) {
         info!("======== mappages start ========");
-        let va = align_down!(va.0, PGSZ);
+        let start = align_down!(va.0, PGSZ);
         let pa = align_down!(pa.0, PGSZ);
         let size = align_up!(size, PGSZ);
-
-        for i in (0..size).step_by(PGSZ) {
-            //info!("map {:#x?} to {:#x?}", va + i, pa + i);
-            self.map(
-                VirtualMemoryAddress::from(va + i),
-                PhysicalMemoryAddress::from(pa + i),
-                flags,
-            );
-        }
+        let end = pa + size;
+        (start..end).step_by(PGSZ).for_each(|address|{
+            match self.map(
+                (address).into(), 
+                (address).into(), 
+                flags
+            ) {
+                Ok(_) => {},
+                Err(e) => panic!("{:?}",e)
+                
+            };
+        });
         info!("======== mappages end ========");
     }
 
     pub fn unmappages(&mut self, va: VirtualMemoryAddress, size: usize) {
-        let va = VirtualMemoryAddress::from(align_down!(va.0, PGSZ));
+        let va = (align_down!(va.0, PGSZ)).into();
         let size = align_up!(size, PGSZ);
-
-        for i in (0..size).step_by(PGSZ) {
+        (0..size).step_by(PGSZ).for_each(|_| {
             self.unmap(va);
-        }
+        });
     }
 }

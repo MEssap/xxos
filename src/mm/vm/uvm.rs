@@ -3,7 +3,7 @@ use xxos_log::info;
 
 use crate::{
     mm::pagetable::PageTableFrame,
-    riscv::registers::satp::{self, Satp},
+    riscv::registers::satp::Satp,
 };
 
 // User Virtual Memory
@@ -30,7 +30,7 @@ impl Uvm {
     }
 
     pub fn as_satp(&self) -> Satp {
-        let ppn = self.pagetables.root().ppn();
+        let ppn = self.pagetables.root().to_ppn();
         let mut satp = Satp::new();
         satp.set_mode(crate::riscv::registers::satp::Mode::Sv39);
         satp.set_ppn(ppn);

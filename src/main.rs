@@ -6,15 +6,9 @@ use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 use xxos::console::Log;
 use xxos::mm;
-use xxos::mm::vm::kvm::LockedKvm;
 use xxos::opensbi::thread_start;
 use xxos::println;
-//use xxos::mm::pagetable::pgtb_test;
-//use xxos::proc::context_test;
-//use xxos::riscv::riscv_test;
-
 static STARTED: AtomicBool = AtomicBool::new(false);
-static KVM: LockedKvm = LockedKvm::new();
 extern crate alloc;
 global_asm!(include_str!("entry.s"));
 
@@ -25,20 +19,18 @@ fn main() {
     // 仅由id为0的线程执行初始化操作
     let thread_id = xxos::opensbi::r_tp();
     if thread_id == 0 {
+        //清理bss段
         clear_bss();
-
+        // 初始化系统log
         xxos_log::init_log(&Log, xxos_log::Level::WARN); // 初始化log
-
-        // 初始化内存
+                                                         // 初始化内存
         mm::pm::heap_init();
-        KVM.get_or_init();
+        // 初始化虚拟内存
+        mm::vm::kvm_init();
 
         // test
         //context_test();
         //riscv_test();
-        let mut vec: Vec<u8> = alloc::vec::Vec::with_capacity(0x5000);
-        vec.push(1);
-        println!("vec {:?}", vec);
         println!("Thread {} start !!!", thread_id);
         STARTED.store(true, Ordering::SeqCst);
     } else {
@@ -47,6 +39,7 @@ fn main() {
                 break;
             }
         }
+        mm::vm::kvm_init();
         println!("Thread {} start !!!", thread_id);
     }
     panic!("run loop")
