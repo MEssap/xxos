@@ -1,4 +1,3 @@
-use super::RegisterOperator;
 use core::arch::asm;
 
 // SATP register have 3 fields:
@@ -79,9 +78,7 @@ impl Satp {
     pub fn set_ppn(&mut self, ppn: usize) {
         self.bits |= ppn;
     }
-}
 
-impl RegisterOperator for Satp {
     #[inline]
     fn read() -> Self {
         let mut bits: usize;
