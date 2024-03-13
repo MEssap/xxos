@@ -81,11 +81,16 @@ impl Exception {
 
 // Supervisor trap Cause
 // register scause
+#[derive(Debug, Default, Clone)]
 pub struct Scause {
     pub bits: usize,
 }
 
 impl Scause {
+    pub fn new() -> Self {
+        Self { bits: 0 }
+    }
+
     #[inline]
     pub fn bits(&self) -> usize {
         self.bits
@@ -120,7 +125,7 @@ impl Scause {
     }
 
     #[inline]
-    fn read() -> Self {
+    pub fn read() -> Self {
         let bits: usize;
         unsafe { asm!("csrr {}, scause", out(reg) bits) }
 
@@ -128,7 +133,7 @@ impl Scause {
     }
 
     #[inline]
-    fn write(&self) {
+    pub fn write(&self) {
         unsafe { asm!("csrw scause, {}", in(reg) self.bits) }
     }
 

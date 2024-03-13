@@ -7,13 +7,13 @@
 pub mod console;
 pub mod error;
 pub mod fs;
-pub mod lang_item;
+pub mod lang_items;
 pub mod mm;
 pub mod opensbi;
 pub mod proc;
 pub mod riscv;
 pub mod sched;
-pub mod syscall;
+//pub mod task;
 pub mod trap;
 pub mod utils;
 

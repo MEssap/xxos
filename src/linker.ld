@@ -11,36 +11,39 @@ SECTIONS
   .text : {
     *(.text.entry)
     . = ALIGN(0x1000);
+    strampoline = .;
+    *(.text.trampoline);
+    . = ALIGN(0x1000);
     *(.text .text.*)
   }
   . = ALIGN(0x1000);
   etext = .;   /* end of text section */
-  . = ALIGN(0x1000);
+
   srodata = .; /* start of read-only-data section */
   .rodata : {
     *(.rodata .rodata.*)
     *(.srodata .srodata.*)
   }
-
-  . = ALIGN(4K);
+  . = ALIGN(0x1000);
   erodata = .; /* end of read-only-data section */
+
   sdata = .;   /* start of data section */
   .data : {
     *(.data .data.*)
     *(.sdata .sdata.*)
   }
-
-  . = ALIGN(4K);
+  . = ALIGN(0x1000);
   edata = .;   /* end of data section */
+
   .bss : {
     *(.bss.stack)
     sbss = .;
     *(.bss .bss.*)
     *(.sbss .sbss.*)
   }
-
   . = ALIGN(4K);
   ebss = .;    /* end of bss section */
+
   ekernel = .; /* end of kernel */
 
   /DISCARD/ : {

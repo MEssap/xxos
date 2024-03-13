@@ -1,6 +1,7 @@
-use core::arch::asm;
+use core::{arch::asm, clone};
 
 /// regiter sstatus(Supervisor Status Register)
+#[derive(Debug, Default, Clone)]
 pub struct Sstatus {
     bits: usize,
 }
@@ -18,6 +19,10 @@ const SUM: usize = 1 << 18;
 const MXR: usize = 1 << 19;
 
 impl Sstatus {
+    pub fn new() -> Self {
+        Self { bits: 0 }
+    }
+
     pub fn bits(&self) -> usize {
         self.bits
     }
@@ -61,14 +66,14 @@ impl Sstatus {
     }
 
     #[inline]
-    fn read() -> Self {
+    pub fn read() -> Self {
         let bits: usize;
         unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
         Self { bits }
     }
 
     #[inline]
-    fn write(&self) {
+    pub fn write(&self) {
         unsafe { asm!("csrw sstatus, {}", in(reg) self.bits) }
     }
 
