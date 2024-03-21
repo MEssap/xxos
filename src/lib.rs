@@ -5,6 +5,7 @@
 #![feature(new_uninit)]
 
 pub mod console;
+pub mod cpu;
 pub mod error;
 pub mod fs;
 pub mod lang_item;
@@ -16,5 +17,5 @@ pub mod sched;
 pub mod syscall;
 pub mod trap;
 pub mod utils;
-
 extern crate alloc;
+extern crate macros;

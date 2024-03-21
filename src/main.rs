@@ -1,7 +1,5 @@
 #![no_main]
 #![no_std]
-
-use alloc::vec::Vec;
 use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 use xxos::console::Log;

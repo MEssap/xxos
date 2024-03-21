@@ -1,14 +1,16 @@
 use crate::{
-    mm::{pagetable_frame::PageTableFrame, pm::def::HEAP_TOP},
+    mm::{
+        pagetable_frame::PageTableFrame,
+        pm::def::{kstack, HEAP_TOP, MAX_PROCESS},
+    },
     riscv::{
-        registers::satp::Satp,
-        registers::RegisterOperator,
+        registers::{satp::Satp, RegisterOperator},
         sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X},
     },
 };
 use alloc::boxed::Box;
 use xx_mutex_lock::OnceLock;
-use xxos_log::info;
+use xxos_log::{error, info};
 
 // Kernel Virtual Memory
 pub struct Kvm {
@@ -37,7 +39,6 @@ impl Kvm {
             fn sdata();
             fn edata();
         }
-
         // map text segment
         self.pagetables.mappages(
             (stext as usize).into(),
@@ -68,9 +69,8 @@ impl Kvm {
             HEAP_TOP - (edata as usize),
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
         );
-
         // map kernel stack
-
+        self.pagetables.map_proc_stacks();
         self.write_satp();
     }
 
