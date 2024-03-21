@@ -36,6 +36,10 @@ impl Sstatus {
         self.bits & SIE != 0
     }
 
+    pub fn set_sie(&mut self) {
+        self.bits |= SIE;
+    }
+
     // Supervisor Previous Privilege Mode
     #[inline]
     pub fn spp(&self) -> SPP {

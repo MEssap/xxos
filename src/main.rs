@@ -21,7 +21,7 @@ fn main() {
 
     // 仅由id为0的线程执行初始化操作
     let thread_id = xxos::opensbi::r_tp();
-    if thread_id == 2 {
+    if thread_id == 0 {
         //清理bss段
         utils::clear_bss();
         // 初始化系统log
@@ -32,11 +32,10 @@ fn main() {
         mm::vm::kvm_init();
         trap::kerneltrap::kernel_trap_init();
 
-        // test
         trap_test();
+        trap::clock::clock_init();
 
-        let sstatus = Sstatus::read();
-        error!("mode: {:#x?}", sstatus.spp());
+        // test
 
         //context_test();
         //riscv_test();

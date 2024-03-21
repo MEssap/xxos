@@ -8,9 +8,13 @@ pub enum Trap {
 }
 
 // 在RISC-V中，异常处理和中断处理都属于异常
-// 异常分为3类:
-// 中断(interrupt): 外部设备发生了重要的事时触发
-// 异常(exception): 程序在执行中发生异常情况时触发
+// 异常分为异常和中断:
+// 中断(interrupt)分为4类:
+//      软件中断(software interrupt): 由软件触发，常用于处理器之间进行通信，或称为处理器间中断(Inter-Processor Interrupt, IPI)
+//      定时器中断(timer interrupt): 来自定时器的中断，常用于处理器的时钟中断
+//      外部中断(external interrupt): 来自处理器外部设备(如串口设备等)的中断。
+//      调试中断(debug interrupt): 用于硬件调试功能
+// 异常(exception)分为: 程序在执行中发生异常情况时触发
 //     如指令访问异常(Instruction access fault)、数据访问异常(data access
 //     fault)和缺页(page fault)等
 // 系统调用(system call): 软件触发，允许软件主动通过请求更高权限的行为触发
@@ -29,8 +33,8 @@ pub enum Interrupt {
 
 impl Interrupt {
     #[inline]
-    pub fn from(nr: usize) -> Self {
-        match nr {
+    pub fn from(interrupt_id: usize) -> Self {
+        match interrupt_id {
             0 => Interrupt::UserSoft,
             1 => Interrupt::SupervisorSoft,
             4 => Interrupt::UserTimer,

@@ -1,27 +1,15 @@
-# Source code from xv6-riscv, have some changes.
-# store and load register in User mode, and execute trap in Supervisor mode
 .section .text.trapomline
-
-#
-# interrupts and exceptions while in supervisor
-# mode come here.
-#
-# the current stack is a kernel stack.
-# push all registers, call kerneltrap().
-# when kerneltrap() returns, restore registers, return.
-#
-.globl kerneltrap
+.globl kernel_trap_handler
 .globl kernelvec
 .align 4
 kernelvec:
-  # make room to save registers.
   addi sp, sp, -256
   
-  # save the registers.
+  # save registers
   sd ra, 0(sp)
   sd sp, 8(sp)
   sd gp, 16(sp)
-  sd tp, 24(sp)
+  #sd tp, 24(sp)
   sd t0, 32(sp)
   sd t1, 40(sp)
   sd t2, 48(sp)
@@ -50,8 +38,27 @@ kernelvec:
   sd t5, 232(sp)
   sd t6, 240(sp)
 
-  # call the C trap handler in trap.c
-  call kerneltrap
+  ## save csr
+  #csrr s2, sepc
+  #csrr s3, sbadaddr
+  #csrr s4, scause
+  #csrr s5, sscratch
+  #sd s2, 248(sp)
+  #sd s3, 256(sp)
+  #sd s4, 264(sp)
+  #sd s5, 24(sp)
+
+  # get sp from sscratch
+
+  # call the trap handler
+  #mv a0, sp
+  call kernel_trap_handler
+
+  ## restore csr
+  #ld t0, 248(sp)
+  #ld t1, 256(sp)
+  #csrw sepc, t0
+  #csrw sstatus, t1
   
   # restore registers.
   ld ra, 0(sp)
@@ -90,39 +97,3 @@ kernelvec:
   
   # return to whatever we were doing in the kernel.
   sret
-  
-#
-# machine-mode timer interrupt.
-#
-.globl timervec
-.align 4
-timervec:
-  # start.c has set up the memory that mscratch points to:
-  # scratch[0,8,16] : register save area.
-  # scratch[24] : address of CLINT's MTIMECMP register.
-  # scratch[32] : desired interval between interrupts.
-  
-  csrrw a0, mscratch, a0
-  sd a1, 0(a0)
-  sd a2, 8(a0)
-  sd a3, 16(a0)
-  
-  # schedule the next timer interrupt
-  # by adding interval to mtimecmp.
-  ld a1, 24(a0) # CLINT_MTIMECMP(hart)
-  ld a2, 32(a0) # interval
-  ld a3, 0(a1)
-  add a3, a3, a2
-  sd a3, 0(a1)
-  
-  # arrange for a supervisor software interrupt
-  # after this handler returns.
-  li a1, 2
-  csrw sip, a1
-  
-  ld a3, 16(a0)
-  ld a2, 8(a0)
-  ld a1, 0(a0)
-  csrrw a0, mscratch, a0
-  
-  mret

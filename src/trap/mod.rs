@@ -1,3 +1,4 @@
+pub mod clock;
 pub mod context;
 pub mod def;
 pub mod kerneltrap;

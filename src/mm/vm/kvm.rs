@@ -108,9 +108,6 @@ impl LockedKvm {
 
 pub fn kvmmake() -> Kvm {
     info!("============ kvmmake start ============");
-    // FIXME(01)
-    // 注释后会报错
-    error!("run here");
     let mut kvm = Kvm::new();
     kvm.init();
     info!("============ kvmmake end ============");
