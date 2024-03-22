@@ -1,16 +1,13 @@
 extern crate alloc;
 use super::{def::PGSZ, pagetable_frame::PhysicalMemoryAddress};
 use alloc::boxed::Box;
-pub trait FrameAllocator {
-    fn alloc() -> Self;
-}
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PageFrame {
     address: PhysicalMemoryAddress,
 }
 
-impl FrameAllocator for PageFrame {
+impl PageFrame {
     fn alloc() -> Self {
         // 直接使用Box申请一页，并得到其裸指针(在程序的生命周期中持续有效)
         let address = Box::<[u8; 4096]>::new_zeroed();
@@ -23,8 +20,8 @@ impl FrameAllocator for PageFrame {
 }
 
 impl From<PhysicalMemoryAddress> for PageFrame {
-    fn from(ppn: PhysicalMemoryAddress) -> Self {
-        Self { address: ppn }
+    fn from(pma: PhysicalMemoryAddress) -> Self {
+        Self { address: pma }
     }
 }
 

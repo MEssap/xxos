@@ -1,4 +1,3 @@
-use super::RegisterOperator;
 use core::arch::asm;
 
 // SATP register have 3 fields:
@@ -15,6 +14,7 @@ pub const SATP_MODE_WIDTH: u8 = 4;
 pub const SATP_MODE_MASK: usize = !0 ^ (SATP_ASID_MASK | SATP_PPN_MASK);
 
 // register satp(Supervisor Address Translation and Protection)
+#[derive(Debug, Default)]
 pub struct Satp {
     bits: usize,
 }
@@ -24,12 +24,6 @@ pub enum Mode {
     Bare = 0b0000, // No translation or protection
     Sv39 = 0b1000, // Page-based 39-bit virtual addressing
     Sv48 = 0b1001, // Page-based 48-bit virtual addressing
-}
-
-impl Default for Satp {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl Satp {
@@ -79,18 +73,16 @@ impl Satp {
     pub fn set_ppn(&mut self, ppn: usize) {
         self.bits |= ppn;
     }
-}
 
-impl RegisterOperator for Satp {
     #[inline]
-    fn read() -> Self {
+    pub fn read() -> Self {
         let mut bits: usize;
         unsafe { asm!("csrr {}, satp", out(reg) bits) }
         Self { bits }
     }
 
     #[inline]
-    fn write(&self) {
+    pub fn write(&self) {
         unsafe { asm!("csrw satp, {}", in(reg) self.bits) }
     }
 

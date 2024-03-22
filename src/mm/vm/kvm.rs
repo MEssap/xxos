@@ -4,7 +4,7 @@ use crate::{
         pm::def::{kstack, HEAP_TOP, MAX_PROCESS},
     },
     riscv::{
-        registers::{satp::Satp, RegisterOperator},
+        registers::satp::Satp,
         sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X},
     },
 };

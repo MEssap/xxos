@@ -1,10 +1,10 @@
-use crate::riscv::registers::RegisterOperator;
 use xxos_log::{error, info};
 
 pub mod cpu;
 pub(crate) mod def;
 pub mod registers;
 pub mod sv39;
+pub mod time;
 
 pub fn riscv_test() {
     use registers::{satp::Satp, sstatus::Sstatus};

@@ -209,6 +209,7 @@ impl PageTableEntry {
 }
 
 #[repr(C)]
+#[repr(align(0x1000))]
 #[derive(Debug)]
 pub struct PageTable {
     entrys: [PageTableEntry; PGSZ / size_of::<PageTableEntry>()],
@@ -220,16 +221,10 @@ impl PageTable {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PageTableFrame {
     root: PhysicalMemoryAddress,
     frames: Vec<PageFrame>,
-}
-
-impl Default for PageTableFrame {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl PageTableFrame {

@@ -1,19 +1,28 @@
-use super::RegisterOperator;
-use core::arch::asm;
+use core::{arch::asm, clone};
 
 /// regiter sstatus(Supervisor Status Register)
+#[derive(Debug, Default, Clone)]
 pub struct Sstatus {
     bits: usize,
 }
 
 // Supervisor Previous Privilege Mode
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SPP {
-    Machine = 0b11,
     Supervisor = 0b01,
     User = 0b00,
 }
 
+const SIE: usize = 1 << 1;
+const SPP: usize = 1 << 8;
+const SUM: usize = 1 << 18;
+const MXR: usize = 1 << 19;
+
 impl Sstatus {
+    pub fn new() -> Self {
+        Self { bits: 0 }
+    }
+
     pub fn bits(&self) -> usize {
         self.bits
     }
@@ -24,43 +33,51 @@ impl Sstatus {
     // Supervisor Interrupt Enable
     #[inline]
     pub fn sie(&self) -> bool {
-        self.bits & (1 << 1) != 0
+        self.bits & SIE != 0
+    }
+
+    pub fn set_sie(&mut self) {
+        self.bits |= SIE;
     }
 
     // Supervisor Previous Privilege Mode
     #[inline]
     pub fn spp(&self) -> SPP {
-        if self.bits & (1 << 8) != 0 {
+        if self.bits & SPP != 0 {
             SPP::Supervisor
         } else {
             SPP::User
         }
     }
 
+    pub fn set_spp(&self, spp: SPP) {
+        match spp {
+            SPP::User => self._clear(SPP),
+            SPP::Supervisor => self._set(SPP),
+        }
+    }
+
     // Permit Supervisor User Memory access
     #[inline]
     pub fn sum(&self) -> bool {
-        self.bits & (1 << 18) != 0
+        self.bits & SUM != 0
     }
 
     // Make eXecutable Readable
     #[inline]
     pub fn mxr(&self) -> bool {
-        self.bits & (1 << 19) != 0
+        self.bits & MXR != 0
     }
-}
 
-impl RegisterOperator for Sstatus {
     #[inline]
-    fn read() -> Self {
+    pub fn read() -> Self {
         let bits: usize;
         unsafe { asm!("csrr {}, sstatus", out(reg) bits) }
-
         Self { bits }
     }
 
     #[inline]
-    fn write(&self) {
+    pub fn write(&self) {
         unsafe { asm!("csrw sstatus, {}", in(reg) self.bits) }
     }
 
