@@ -2,13 +2,12 @@ use crate::{
     mm::{pagetable_frame::PageTableFrame, pm::def::HEAP_TOP},
     riscv::{
         registers::satp::Satp,
-        registers::RegisterOperator,
         sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X},
     },
 };
 use alloc::boxed::Box;
 use xx_mutex_lock::OnceLock;
-use xxos_log::info;
+use xxos_log::{error, info};
 
 // Kernel Virtual Memory
 pub struct Kvm {

@@ -1,10 +1,7 @@
 use alloc::boxed::Box;
 use xxos_log::info;
 
-use crate::{
-    mm::pagetable_frame::PageTableFrame,
-    riscv::registers::{satp::Satp, RegisterOperator},
-};
+use crate::{mm::pagetable_frame::PageTableFrame, riscv::registers::satp::Satp};
 
 // User Virtual Memory
 pub struct Uvm {
