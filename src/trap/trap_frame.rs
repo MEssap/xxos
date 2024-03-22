@@ -1,6 +1,8 @@
+use crate::riscv::registers::{scause::Scause, sepc::Sepc};
+
 #[repr(C)]
 #[derive(Debug, Default, Clone)]
-pub struct TrapContext {
+pub struct TrapFrame {
     ra: usize,
     sp: usize,
     gp: usize,
@@ -32,58 +34,51 @@ pub struct TrapContext {
     t4: usize,
     t5: usize,
     t6: usize,
+
     // CSR
-    //sepc: usize,//可能会发生循环嵌套
+    sepc: Sepc,
+    scause: Scause,
     //sbadaddr: usize,
-    //scause: usize,
     //scratch: usize,
 }
 
-impl TrapContext {
-    pub fn new() -> Self {
-        Self {
-            ra: 0,
-            sp: 0,
-            gp: 0,
-            tp: 0,
-            t0: 0,
-            t1: 0,
-            t2: 0,
-            s0: 0,
-            s1: 0,
-            a0: 0,
-            a1: 0,
-            a2: 0,
-            a3: 0,
-            a4: 0,
-            a5: 0,
-            a6: 0,
-            a7: 0,
-            s2: 0,
-            s3: 0,
-            s4: 0,
-            s5: 0,
-            s6: 0,
-            s7: 0,
-            s8: 0,
-            s9: 0,
-            s10: 0,
-            s11: 0,
-            t3: 0,
-            t4: 0,
-            t5: 0,
-            t6: 0,
-            //sepc: 0,
-            //sbadaddr: 0,
-            //scause: 0,
-            //scratch: 0,
-        }
-    }
-
+impl TrapFrame {
     pub fn store_in_stack() {}
 
     pub fn set_sp(&mut self, sp: usize) {
         self.sp = sp;
+    }
+
+    pub fn sepc(&self) -> usize {
+        self.sepc.bits()
+    }
+
+    pub fn set_sepc(&mut self, pc: usize) {
+        self.sepc.set_bits(pc);
+    }
+
+    pub fn scause(&self) -> &Scause {
+        &self.scause
+    }
+
+    pub fn a0(&self) -> usize {
+        self.a0
+    }
+
+    pub fn a1(&self) -> usize {
+        self.a1
+    }
+
+    pub fn a2(&self) -> usize {
+        self.a2
+    }
+
+    pub fn a7(&self) -> usize {
+        self.a7
+    }
+
+    pub fn set_a0(&mut self, a0: usize) {
+        self.a0 = a0
     }
 
     //pub fn app_init_context(entry: usize, sp: usize) -> Self {

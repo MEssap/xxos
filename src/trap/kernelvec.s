@@ -3,7 +3,7 @@
 .globl kernelvec
 .align 4
 kernelvec:
-  addi sp, sp, -256
+  addi sp, sp, -264
   
   # save registers
   sd ra, 0(sp)
@@ -39,26 +39,26 @@ kernelvec:
   sd t6, 240(sp)
 
   ## save csr
-  #csrr s2, sepc
-  #csrr s3, sbadaddr
-  #csrr s4, scause
+  csrr s2, sepc
+  csrr s3, scause
+  #csrr s4, sbadaddr
   #csrr s5, sscratch
-  #sd s2, 248(sp)
-  #sd s3, 256(sp)
+  sd s2, 248(sp)
+  sd s3, 256(sp)
   #sd s4, 264(sp)
   #sd s5, 24(sp)
 
   # get sp from sscratch
 
   # call the trap handler
-  #mv a0, sp
+  mv a0, sp
   call kernel_trap_handler
 
   ## restore csr
-  #ld t0, 248(sp)
-  #ld t1, 256(sp)
-  #csrw sepc, t0
-  #csrw sstatus, t1
+  ld t0, 248(sp)
+  ld t1, 256(sp)
+  csrw sepc, t0
+  csrw scause, t1
   
   # restore registers.
   ld ra, 0(sp)
@@ -93,7 +93,7 @@ kernelvec:
   ld t5, 232(sp)
   ld t6, 240(sp)
 
-  addi sp, sp, 256
+  addi sp, sp, 264
   
   # return to whatever we were doing in the kernel.
   sret

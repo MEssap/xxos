@@ -22,12 +22,7 @@ impl Sepc {
     }
 
     #[inline]
-    pub fn address(&self) -> usize {
-        self.bits
-    }
-
-    #[inline]
-    pub fn set_address(&mut self, addr: usize) {
+    pub fn set_bits(&mut self, addr: usize) {
         self.bits = addr;
     }
 

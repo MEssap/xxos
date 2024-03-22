@@ -2,8 +2,7 @@ use core::arch::asm;
 
 // Supervisor Trap-Vector Base Address
 pub struct Stvec {
-    address: usize,
-    mode: TrapMode,
+    bits: usize,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -27,10 +26,7 @@ impl Stvec {
     pub fn read() -> Self {
         let bits: usize;
         unsafe { asm!("csrr {}, stvec", out(reg) bits) }
-        Self {
-            address: bits & !((1 << 2) - 1),
-            mode: TrapMode::from(bits & ((1 << 2) - 1)),
-        }
+        Self { bits }
     }
 
     #[inline]
@@ -40,11 +36,15 @@ impl Stvec {
 
     #[inline]
     pub fn mode(&self) -> TrapMode {
-        self.mode
+        match self.bits & ((1 << 2) - 1) {
+            0 => TrapMode::Direct,
+            1 => TrapMode::Vectored,
+            _ => panic!("Unknow trapmode"),
+        }
     }
 
     #[inline]
     pub fn set_mode(&mut self, mode: TrapMode) {
-        self.mode = mode;
+        self.bits = (self.bits & !((1 << 2) - 1)) + mode as usize;
     }
 }

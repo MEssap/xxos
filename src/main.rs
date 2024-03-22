@@ -1,16 +1,14 @@
 #![no_main]
 #![no_std]
 
-use alloc::vec::Vec;
-use core::arch::{asm, global_asm};
+use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 use xxos::console::Log;
 use xxos::opensbi::thread_start;
-use xxos::riscv::registers::sstatus::Sstatus;
+use xxos::riscv::registers::r_tp;
 use xxos::trap::trap_test;
 use xxos::{mm, utils};
 use xxos::{println, trap};
-use xxos_log::{error, warn};
 static STARTED: AtomicBool = AtomicBool::new(false);
 extern crate alloc;
 global_asm!(include_str!("entry.s"));
@@ -20,22 +18,23 @@ fn main() {
     thread_start();
 
     // 仅由id为0的线程执行初始化操作
-    let thread_id = xxos::opensbi::r_tp();
+    let thread_id = r_tp();
     if thread_id == 0 {
         //清理bss段
         utils::clear_bss();
         // 初始化系统log
         xxos_log::init_log(&Log, xxos_log::Level::WARN);
+        // 初始化trap
+        trap::kerneltrap::kernel_trap_init();
+        //trap::ecall::user_env_call_init();
+        //trap::clock::clock_init();
         // 初始化内存
         mm::pm::heap_init();
         // 初始化虚拟内存
         mm::vm::kvm_init();
-        trap::kerneltrap::kernel_trap_init();
-
-        trap_test();
-        trap::clock::clock_init();
 
         // test
+        trap_test();
 
         //context_test();
         //riscv_test();
