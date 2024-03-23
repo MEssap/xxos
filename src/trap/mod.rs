@@ -1,19 +1,22 @@
 pub mod clock;
 pub mod def;
+pub mod trampoline;
 //pub mod ecall;
 pub mod kerneltrap;
 pub mod trap_frame;
 
 use core::arch::{asm, global_asm};
 
-use xxos_log::{info, warn};
+use xxos_log::info;
 
 global_asm!(include_str!("kernelvec.s"));
-//global_asm!(include_str!("uservec.s"));
+global_asm!(include_str!("trampoline.s"));
 
 extern "C" {
     pub fn kernelvec();
-    //pub fn uservec();
+    pub fn uservec();
+    pub fn trampoline();
+    pub fn userret();
 }
 
 pub enum TrapError {

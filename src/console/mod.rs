@@ -1,4 +1,3 @@
-mod def;
 pub mod input;
 pub mod output;
 

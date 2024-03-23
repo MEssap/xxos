@@ -1,5 +1,9 @@
 use crate::{
-    mm::{pagetable_frame::PageTableFrame, pm::def::HEAP_TOP},
+    mm::{
+        def::PGSZ,
+        pagetable_frame::PageTableFrame,
+        pm::def::{HEAP_TOP, TRAMPOLINE},
+    },
     riscv::{
         registers::satp::Satp,
         sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X},
@@ -7,7 +11,7 @@ use crate::{
 };
 use alloc::boxed::Box;
 use xx_mutex_lock::OnceLock;
-use xxos_log::{error, info};
+use xxos_log::info;
 
 // Kernel Virtual Memory
 pub struct Kvm {
@@ -35,8 +39,8 @@ impl Kvm {
             fn erodata();
             fn sdata();
             fn edata();
+            fn trampoline();
         }
-
         // map text segment
         self.pagetables.mappages(
             (stext as usize).into(),
@@ -67,9 +71,14 @@ impl Kvm {
             HEAP_TOP - (edata as usize),
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
         );
-
+        self.pagetables.mappages(
+            TRAMPOLINE.into(),
+            (trampoline as usize).into(),
+            PGSZ,
+            PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_V,
+        );
         // map kernel stack
-
+        self.pagetables.map_proc_stacks();
         self.write_satp();
     }
 

@@ -1,6 +1,7 @@
 use super::{
     def::PGSZ,
     page_frame::{alloc_page, PageFrame},
+    pm::def::{kstack, phy_kstack, KERNEL_STACK_SIZE, MAX_PROCESS},
 };
 use crate::riscv::sv39::{pteflags::*, PTE_PPN_MASK, PTE_PPN_SHIFT};
 
@@ -45,6 +46,12 @@ impl PhysicalMemoryAddress {
 
     pub fn get_mut_pagetable(&self) -> &'static mut PageTable {
         unsafe { (self.0 as *mut PageTable).as_mut().unwrap() }
+    }
+    ///
+    /// # Safety
+    /// self.0 not null
+    pub unsafe fn get_mut<T>(&self) -> &'static mut T {
+        (self.0 as *mut T).as_mut().unwrap()
     }
 }
 
@@ -247,6 +254,24 @@ impl PageTableFrame {
         unsafe { (self.root().0 as *mut PageTable).as_mut().unwrap() }
     }
 
+    pub fn map_proc_stacks(&mut self) {
+        (0..MAX_PROCESS).for_each(|pid| {
+            let mut va = kstack(pid);
+            while va < kstack(pid) + KERNEL_STACK_SIZE {
+                //这里最好直接分配N个页
+                //我在这里偷懒直接使用了物理内存的最上面的一部分
+                let pa = phy_kstack(pid);
+                self.mappages(
+                    va.into(),
+                    pa.into(),
+                    KERNEL_STACK_SIZE,
+                    PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
+                );
+                va += KERNEL_STACK_SIZE;
+            }
+        });
+    }
+
     pub fn walk(
         &mut self,
         va: VirtualMemoryAddress,
@@ -313,16 +338,16 @@ impl PageTableFrame {
         flags: usize,
     ) {
         info!("======== mappages start ========");
-        let start = align_down!(va.0, PGSZ);
-        let pa = align_down!(pa.0, PGSZ);
-        let size = align_up!(size, PGSZ);
-        let end = pa + size;
-        (start..end).step_by(PGSZ).for_each(|address| {
-            match self.map((address).into(), (address).into(), flags) {
-                Ok(_) => {}
-                Err(e) => panic!("{:?}", e),
+        let mut addr = align_down!(va.0, PGSZ);
+        let last = align_down!(va.0 + size, PGSZ);
+        let mut pa = pa.0;
+        while addr < last {
+            let Ok(_) = self.map(addr.into(), pa.into(), flags) else {
+                panic!("Err")
             };
-        });
+            addr += PGSZ;
+            pa += PGSZ;
+        }
         info!("======== mappages end ========");
     }
 

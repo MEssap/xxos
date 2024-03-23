@@ -36,6 +36,9 @@ impl PageFrame {
     pub fn to_pma(&self) -> PhysicalMemoryAddress {
         self.address
     }
+    pub fn to_usize(&self) -> usize {
+        self.address.0
+    }
 }
 
 pub fn alloc_page() -> PageFrame {

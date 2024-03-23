@@ -30,4 +30,9 @@ impl Sepc {
     pub fn write(&self) {
         unsafe { asm!("csrw sepc, {}", in(reg) self.bits) };
     }
+
+    #[inline]
+    pub fn _write(bits: usize) {
+        unsafe { asm!("csrw sepc, {}", in(reg) bits) };
+    }
 }
