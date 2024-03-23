@@ -1,26 +1,20 @@
 use super::kernelvec;
 use super::trap_frame::TrapFrame;
 use crate::{
-    error,
-    riscv::{
-        registers::{
-            satp::Satp,
-            scause::{Exception, Interrupt, Scause, Trap},
-            sepc::Sepc,
-            sstatus::Sstatus,
-            stval::Stval,
-            stvec::{Stvec, TrapMode},
-        },
-        time,
+    riscv::registers::{
+        scause::{Exception, Interrupt, Scause, Trap},
+        sstatus::{intr_off, Sstatus},
+        stval::Stval,
+        stvec::{Stvec, TrapMode},
     },
     trap::{clock::clock_set_next_event, def::CLOCK_COUNTS},
 };
-use xxos_log::{error, info, warn};
+use xxos_log::{error, warn};
 
-// 由于基于OpenSBI，内核在运行之初MIDELEG寄存器的值为0x0000000000001666，
-// 即将软件中断和时钟中断委托给了S模式
-// MEDELEG寄存器的值为0x0000000000f0b509，
-// 即将未对齐指令、断点、来自用户模式的系统调用处理、指令缺页、加载缺页、存储/AMO缺页异常委托给了S模式
+/// 由于基于OpenSBI，内核在运行之初MIDELEG寄存器的值为0x0000000000001666，
+/// 即将软件中断和时钟中断委托给了S模式
+/// MEDELEG寄存器的值为0x0000000000f0b509，
+/// 即将未对齐指令、断点、来自用户模式的系统调用处理、指令缺页、加载缺页、存储/AMO缺页异常委托给了S模式
 
 pub fn kernel_trap_init() {
     Stvec::write(kernelvec as usize, TrapMode::Direct);
@@ -32,8 +26,10 @@ pub fn kernel_trap_init() {
 #[inline]
 #[no_mangle]
 pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
+    intr_off();
     let scause = Scause::read();
     let stval = Stval::read();
+    let stvec = Stvec::read();
     //let context = context.clone();
 
     match scause.cause() {
@@ -44,21 +40,11 @@ pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
             warn!("UserTimer");
         }
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            warn!("SupervisorTimer");
-            let time = time::read_time();
-            let cycle = time::read_cycle();
-            //warn!("time: {:#x?}", time);
-            //warn!("cycle: {:#x?}", cycle);
-
-            if CLOCK_COUNTS.add_counts() == 5 {
+            clock_set_next_event();
+            if CLOCK_COUNTS.add_counts() == 100 {
                 CLOCK_COUNTS.clear_counts();
-                clock_set_next_event();
-                //warn!("5 counts");
+                warn!("100 counts");
             }
-
-            trapframe.set_sepc(trapframe.sepc() + 2);
-
-            //clock_set_next_time();
         }
         /* 异常处理 */
         Trap::Exception(Exception::UserEnvCall) => {
@@ -72,6 +58,7 @@ pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
 
             trapframe.set_sepc(trapframe.sepc() + 4);
             trapframe.set_a0(0);
+            panic!("Now init process successfuly ecall")
         }
         Trap::Exception(Exception::Breakpoint) => {
             warn!("{:#x?}", trapframe);
@@ -90,7 +77,11 @@ pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
             warn!("{:#x?}", Exception::InstructionPageFault);
         }
         Trap::Exception(e) => {
-            error!("{:#x?} never have handler", e);
+            error!(
+                "{:#x?} never have handler \n stvec[{:#x?}] \n  scause {:#x?}",
+                e, stvec, scause
+            );
+            panic!("Err");
         }
         _ => {
             panic!(

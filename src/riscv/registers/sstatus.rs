@@ -1,4 +1,4 @@
-use core::{arch::asm, clone};
+use core::arch::asm;
 
 /// regiter sstatus(Supervisor Status Register)
 #[derive(Debug, Default, Clone)]
@@ -17,7 +17,7 @@ const SIE: usize = 1 << 1;
 const SPP: usize = 1 << 8;
 const SUM: usize = 1 << 18;
 const MXR: usize = 1 << 19;
-
+const SPIE: usize = 1 << 5; // Supervisor Previous Interrupt Enable
 impl Sstatus {
     pub fn new() -> Self {
         Self { bits: 0 }
@@ -50,10 +50,10 @@ impl Sstatus {
         }
     }
 
-    pub fn set_spp(&self, spp: SPP) {
+    pub fn set_spp(spp: SPP) {
         match spp {
-            SPP::User => self._clear(SPP),
-            SPP::Supervisor => self._set(SPP),
+            SPP::User => Self::_clear(SPP),
+            SPP::Supervisor => Self::_set(SPP),
         }
     }
 
@@ -61,6 +61,10 @@ impl Sstatus {
     #[inline]
     pub fn sum(&self) -> bool {
         self.bits & SUM != 0
+    }
+    #[inline]
+    pub fn set_spie() {
+        Self::_set(SPIE);
     }
 
     // Make eXecutable Readable
@@ -82,12 +86,25 @@ impl Sstatus {
     }
 
     #[inline]
-    fn _clear(&self, bits: usize) {
+    pub fn clear_sie() {
+        Self::_clear(SIE);
+    }
+
+    #[inline]
+    fn _clear(bits: usize) {
         unsafe { asm!("csrc sstatus, {}", in(reg) bits) }
     }
 
     #[inline]
-    fn _set(&self, bits: usize) {
+    fn _set(bits: usize) {
         unsafe { asm!("csrs sstatus, {}", in(reg) bits) }
     }
+}
+#[inline]
+pub fn intr_off() {
+    Sstatus::clear_sie();
+}
+#[inline]
+pub fn intr_on() {
+    Sstatus::_set(SIE);
 }

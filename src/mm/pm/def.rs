@@ -13,11 +13,11 @@ pub const MAX_PROCESS: usize = 32;
 #[inline]
 pub fn kstack(pid: usize) -> usize {
     //n+1
-    TRAPFRAME - PGSZ - (pid + 1) * ((KERNEL_STACK_SIZE/PGSZ + 1)*PGSZ)
+    TRAPFRAME - PGSZ - (pid + 1) * ((KERNEL_STACK_SIZE / PGSZ + 1) * PGSZ)
 }
 
 #[inline]
 pub fn phy_kstack(pid: usize) -> usize {
     //n+1
-    PHYSTOP - (10*PGSZ) - (pid + 1) * ((KERNEL_STACK_SIZE/PGSZ + 1)*PGSZ)
+    PHYSTOP - (10 * PGSZ) - (pid + 1) * ((KERNEL_STACK_SIZE / PGSZ + 1) * PGSZ)
 }

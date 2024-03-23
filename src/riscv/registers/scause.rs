@@ -1,4 +1,4 @@
-use core::{arch::asm, mem::size_of};
+use core::arch::asm;
 
 // Trap Cause
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -119,7 +119,7 @@ impl Scause {
     // Is trap cause an interrupt.
     #[inline]
     pub fn is_interrupt(&self) -> bool {
-        self.bits & (1 << (size_of::<usize>() * 8 - 1)) != 0
+        self.bits & (1 << (usize::BITS - 1)) != 0
     }
 
     // Is trap cause an exception.

@@ -1,12 +1,18 @@
 use crate::mm::page_frame::{alloc_page, PageFrame};
-use crate::mm::pm::def::{kstack, KERNEL_STACK_SIZE};
+use crate::mm::pagetable_frame::PageTableFrame;
+use crate::mm::pm::def::{kstack, KERNEL_STACK_SIZE, TRAMPOLINE, TRAPFRAME};
+use crate::mm::vm::uvm::Uvm;
+use crate::riscv::sv39::pteflags::{PTE_FLAG_R, PTE_FLAG_U, PTE_FLAG_V, PTE_FLAG_W, PTE_FLAG_X};
 use crate::{cpu::Context, mm::def::PGSZ};
 use alloc::string::{String, ToString};
 use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use core::default;
+use core::{default, ptr};
+use macros::Getter;
+
+use super::TASKMANAGER;
 
 pub static INITCODE: [u8; 52] = [
     0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x35, 0x02,
@@ -68,7 +74,7 @@ impl default::Default for State {
         Self::Ready
     }
 }
-#[derive(Debug, Default)]
+#[derive(Default, Getter)]
 pub struct Tcb {
     name: String,
     state: State,
@@ -78,13 +84,16 @@ pub struct Tcb {
     parent: Option<Weak<Tcb>>,
     context: Context,
     kstack: usize,
+    pagetable: PageTableFrame,
     trapframe: Option<&'static mut TrapFrame>,
     children: Vec<Arc<Tcb>>,
     frames: Vec<PageFrame>,
+    vm: Uvm,
 }
 
 impl Tcb {
     ///ask for 4096 size page
+    /// # Safety
     pub unsafe fn alloc<T: Sized>(&mut self) -> *mut T {
         if core::mem::size_of::<T>() > PGSZ {
             panic!("Error the struct size more than a page")
@@ -94,9 +103,47 @@ impl Tcb {
         self.frames.push(frame);
         ret as *mut T
     }
+
+    pub fn get_mut_trapframe(&self) -> Option<&mut TrapFrame> {
+        if let Some(ref ptr) = self.trapframe {
+            let ptr = (*ptr) as *const _ as usize;
+            unsafe { Some((ptr as *mut TrapFrame).as_mut().unwrap()) }
+        } else {
+            None
+        }
+    }
 }
 
 pub fn zero_task() -> Tcb {
+    fn init_zero_task_pagetable(trapframe: usize) -> PageTableFrame {
+        extern "C" {
+            fn trampoline();
+        }
+        let mut pagetable = PageTableFrame::new();
+        let page = alloc_page();
+        let pa = page.to_pma();
+        pagetable.save_page(page);
+        pagetable.mappages(
+            0.into(),
+            pa,
+            PGSZ,
+            PTE_FLAG_U | PTE_FLAG_V | PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_W,
+        );
+        pagetable.mappages(
+            TRAMPOLINE.into(),
+            (trampoline as usize).into(),
+            PGSZ,
+            PTE_FLAG_V | PTE_FLAG_X | PTE_FLAG_R,
+        );
+        pagetable.mappages(
+            TRAPFRAME.into(),
+            trapframe.into(),
+            PGSZ,
+            PTE_FLAG_V | PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_W,
+        );
+        unsafe { ptr::copy_nonoverlapping(INITCODE.as_ptr(), pa.get_mut(), INITCODE.len()) }
+        pagetable
+    }
     let mut task = Tcb::default();
     let trapframe = unsafe {
         let trapframe = task.alloc::<TrapFrame>();
@@ -112,5 +159,11 @@ pub fn zero_task() -> Tcb {
     task.kstack = kstack(0);
     task.state = State::Ready;
     task.killed = false;
-    todo!()
+    task.pagetable = init_zero_task_pagetable(trapframe as usize);
+    task
+}
+
+pub fn test_initcode() {
+    let task = zero_task();
+    TASKMANAGER.lock().push(Arc::new(task));
 }

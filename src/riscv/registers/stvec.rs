@@ -1,6 +1,7 @@
 use core::arch::asm;
 
 // Supervisor Trap-Vector Base Address
+#[derive(Debug)]
 pub struct Stvec {
     bits: usize,
 }

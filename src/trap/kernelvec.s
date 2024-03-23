@@ -1,4 +1,3 @@
-.section .text.trapomline
 .globl kernel_trap_handler
 .globl kernelvec
 .align 4

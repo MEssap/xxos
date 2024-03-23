@@ -17,11 +17,16 @@ pub fn clock_set_next_event() {
 
 pub struct ClockCounts(Mutex<usize>);
 
-impl ClockCounts {
-    pub const fn new() -> Self {
+impl Default for ClockCounts {
+    fn default() -> Self {
         Self(Mutex::new(0))
     }
+}
 
+impl ClockCounts {
+    pub const fn init() -> Self {
+        Self(Mutex::new(0))
+    }
     pub fn add_counts(&self) -> usize {
         let mut counts = self.0.lock();
         *counts += 1;

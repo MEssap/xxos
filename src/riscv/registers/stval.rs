@@ -1,6 +1,7 @@
 use core::arch::asm;
 
 // Supervisor trap Value
+#[derive(Debug)]
 pub struct Stval {
     bits: usize,
 }

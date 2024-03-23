@@ -47,6 +47,12 @@ impl PhysicalMemoryAddress {
     pub fn get_mut_pagetable(&self) -> &'static mut PageTable {
         unsafe { (self.0 as *mut PageTable).as_mut().unwrap() }
     }
+    ///
+    /// # Safety
+    /// self.0 not null
+    pub unsafe fn get_mut<T>(&self) -> &'static mut T {
+        (self.0 as *mut T).as_mut().unwrap()
+    }
 }
 
 impl Display for PhysicalMemoryAddress {
@@ -255,7 +261,12 @@ impl PageTableFrame {
                 //这里最好直接分配N个页
                 //我在这里偷懒直接使用了物理内存的最上面的一部分
                 let pa = phy_kstack(pid);
-                self.mappages(va.into(), pa.into(), KERNEL_STACK_SIZE, PTE_FLAG_X|PTE_FLAG_R|PTE_FLAG_W | PTE_FLAG_V);
+                self.mappages(
+                    va.into(),
+                    pa.into(),
+                    KERNEL_STACK_SIZE,
+                    PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
+                );
                 va += KERNEL_STACK_SIZE;
             }
         });
@@ -327,11 +338,13 @@ impl PageTableFrame {
         flags: usize,
     ) {
         info!("======== mappages start ========");
-        let mut addr = align_down!(va.0,PGSZ);
-        let last = align_down!(va.0+size ,PGSZ);
+        let mut addr = align_down!(va.0, PGSZ);
+        let last = align_down!(va.0 + size, PGSZ);
         let mut pa = pa.0;
         while addr < last {
-            let Ok(_) = self.map(addr.into(), pa.into(), flags) else {panic!("Err")};
+            let Ok(_) = self.map(addr.into(), pa.into(), flags) else {
+                panic!("Err")
+            };
             addr += PGSZ;
             pa += PGSZ;
         }
