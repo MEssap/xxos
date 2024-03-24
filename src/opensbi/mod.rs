@@ -1,8 +1,9 @@
-#![allow(unused)]
 mod def;
 
 use core::arch::asm;
 use def::*;
+
+use crate::riscv::registers::r_tp;
 
 pub struct Opensbi;
 
@@ -11,6 +12,8 @@ impl Opensbi {
         sbi_call(SBI_CONSOLE_PUTCHAR, c, 0, 0, 0);
     }
 
+    // 启动硬件线程(hart, Hardware Thread)
+    // 在risc-v中，一个hart就是一个CPU
     pub fn sbi_hsm_hart_start(hart_id: usize) -> usize {
         sbi_call(SBI_EXT_HSM, hart_id, 0x80200000, 64, SBI_EXT_HSM_HART_START)
     }
@@ -19,19 +22,15 @@ impl Opensbi {
         sbi_call(SBI_SHUTDOWN, 0, 0, 0, 0);
         panic!("It should shutdown!");
     }
-}
 
-#[inline]
-pub fn r_tp() -> usize {
-    unsafe {
-        let id;
-        asm!("mv {0}, tp", out(reg) id);
-        id
+    pub fn sbi_set_timer(stime_value: usize) {
+        sbi_call(SBI_SET_TIMER, stime_value, 0, 0, 0);
     }
 }
+
 pub fn thread_start() {
-    use crate::println;
-    println!("hello");
+    // use crate::println;
+    // println!("hello");
     let tp = r_tp();
     let i: usize = 0;
     for i in i..N_HART {

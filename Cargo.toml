@@ -4,8 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[workspace]
+members = [".", "macros"]
 
 [dependencies]
 xx_mutex_lock = { git = "https://github.com/ZyLqb/xx_mutex_lock.git", branch = "master" }
-xxos_alloc ={ git = "https://github.com/ZyLqb/xx_alloc.git",branch = "master"}
-xxos_log ={ git = "https://github.com/MEssap/xxos_log.git",branch = "main" }
+xxos_alloc = { git = "https://github.com/ZyLqb/xx_alloc.git", branch = "master" }
+xxos_log = { git = "https://github.com/MEssap/xxos_log.git", branch = "main" }
+macros ={ path = "./macros"}

@@ -17,9 +17,6 @@ impl Write for Writer {
     }
 }
 
-
-
-
 pub fn print(args: fmt::Arguments) {
     PT.lock().write_fmt(args).unwrap();
 }

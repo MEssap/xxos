@@ -1,38 +1,37 @@
+use alloc::string::{String, ToString};
 use core::panic::Location;
-pub struct ErrorTrace<'a> {
-    pub message: &'a str,
-    file: &'a str,
+
+pub struct ErrorTrace {
+    pub message: String,
+    file: String,
     line: u32,
 }
 
-impl<'a> ErrorTrace<'a> {
+impl ErrorTrace {
     #[track_caller]
     pub fn new(message: &str) -> ErrorTrace {
         let location = Location::caller();
         ErrorTrace {
-            message,
-            file: location.file(),
+            message: message.to_string(),
+            file: location.file().to_string(),
             line: location.line(),
+        }
+    }
+    pub fn from_other_error(message: &str, file: &str, line: u32) -> ErrorTrace {
+        ErrorTrace {
+            message: message.to_string(),
+            file: file.to_string(),
+            line,
         }
     }
 }
 
-impl<'a> core::fmt::Display for ErrorTrace<'a> {
+impl core::fmt::Display for ErrorTrace {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
-            "Error cause {} in {}:{}",
+            "Error cause [{}] in {}:{}",
             self.message, self.file, self.line
         )
     }
 }
-
-//an example
-// impl From<std::io::Error> for ErrorTrace {
-//     #[track_caller]
-//     fn from(value: std::io::Error) -> Self {
-//         let message = value.to_string();
-//         let location = std::panic::Location::caller();
-//         ErrorTrace::from_other_error(&message, location.file(), location.line())
-//     }
-// }

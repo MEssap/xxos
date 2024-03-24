@@ -5,43 +5,46 @@ BASE_ADDRESS = 0x80200000;
 SECTIONS
 {
   . = BASE_ADDRESS;
-  skernel = .;
+  skernel = .; /* start of kernel */
 
-  stext = .;
+  stext = .;   /* start of text section */
   .text : {
     *(.text.entry)
+    . = ALIGN(0x1000);
+    strampsec = .;  /* start of tramposection */
+    *(.text.trampsec)
     . = ALIGN(0x1000);
     *(.text .text.*)
   }
   . = ALIGN(0x1000);
-  etext = .;
-  . = ALIGN(0x1000);
-  srodata = .;
+  etext = .;   /* end of text section */
+
+  srodata = .; /* start of read-only-data section */
   .rodata : {
     *(.rodata .rodata.*)
     *(.srodata .srodata.*)
   }
+  . = ALIGN(0x1000);
+  erodata = .; /* end of read-only-data section */
 
-  . = ALIGN(4K);
-  erodata = .;
-  sdata = .;
+  sdata = .;   /* start of data section */
   .data : {
     *(.data .data.*)
     *(.sdata .sdata.*)
   }
+  . = ALIGN(0x1000);
+  edata = .;   /* end of data section */
 
-  . = ALIGN(4K);
-  edata = .;
   .bss : {
     *(.bss.stack)
     sbss = .;
     *(.bss .bss.*)
     *(.sbss .sbss.*)
   }
-
   . = ALIGN(4K);
-  bss_end = .;
-  ekernel = .;
+  ebss = .;    /* end of bss section */
+
+  ekernel = .; /* end of kernel */
 
   /DISCARD/ : {
     *(.eh_frame)
