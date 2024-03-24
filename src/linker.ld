@@ -10,10 +10,9 @@ SECTIONS
   stext = .;   /* start of text section */
   .text : {
     *(.text.entry)
-    *(.text .text.*)
     . = ALIGN(0x1000);
-    _trampoline = .;
-    *(trampsec)
+    strampsec = .;  /* start of tramposection */
+    *(.text.trampsec)
     . = ALIGN(0x1000);
     *(.text .text.*)
   }

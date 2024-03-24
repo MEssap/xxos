@@ -9,9 +9,7 @@
         # kernel.ld causes this code to start at 
         # a page boundary.
         #
-.section trampsec
-.globl trampoline
-trampoline:
+.section .text.trampsec
 .align 4
 .globl uservec
 uservec:    
