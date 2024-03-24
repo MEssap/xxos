@@ -1,13 +1,12 @@
-use super::kernelvec;
-use super::trap_frame::TrapFrame;
 use crate::{
     riscv::registers::{
         scause::{Exception, Interrupt, Scause, Trap},
+        sepc::Sepc,
         sstatus::{intr_off, Sstatus},
         stval::Stval,
         stvec::{Stvec, TrapMode},
     },
-    trap::{clock::clock_set_next_event, def::CLOCK_COUNTS},
+    trap::{clock::clock_set_next_event, def::CLOCK_COUNTS, kernelvec, strampsec},
 };
 use xxos_log::{error, warn};
 
@@ -17,6 +16,7 @@ use xxos_log::{error, warn};
 /// 即将未对齐指令、断点、来自用户模式的系统调用处理、指令缺页、加载缺页、存储/AMO缺页异常委托给了S模式
 
 pub fn kernel_trap_init() {
+    // 设置中断向量表(保存物理地址)
     Stvec::write(kernelvec as usize, TrapMode::Direct);
     let mut sstatus = Sstatus::read();
     sstatus.set_sie();
@@ -25,12 +25,11 @@ pub fn kernel_trap_init() {
 
 #[inline]
 #[no_mangle]
-pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
+pub fn kernel_trap_handler() {
     intr_off();
     let scause = Scause::read();
     let stval = Stval::read();
     let stvec = Stvec::read();
-    //let context = context.clone();
 
     match scause.cause() {
         /* 中断处理 */
@@ -47,31 +46,20 @@ pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
             }
         }
         /* 异常处理 */
-        Trap::Exception(Exception::UserEnvCall) => {
-            warn!(
-                "syscall id {:#x?},args: [{:#x?}, {:#x?}, {:#x?}]",
-                trapframe.a7(),
-                trapframe.a0(),
-                trapframe.a1(),
-                trapframe.a2()
-            );
-
-            trapframe.set_sepc(trapframe.sepc() + 4);
-            trapframe.set_a0(0);
-            panic!("Now init process successfuly ecall")
-        }
         Trap::Exception(Exception::Breakpoint) => {
-            warn!("{:#x?}", trapframe);
+            let mut sepc = Sepc::read();
+            let scause = Scause::read();
             let stval = Stval::read();
 
             warn!(
                 "breakpoint sepc: {:#x?}, sscause: {:#x?}, stval = {:#x?}",
-                trapframe.sepc(),
-                trapframe.scause().cause(),
+                sepc.bits(),
+                scause.bits(),
                 stval.bits()
             );
 
-            trapframe.set_sepc(trapframe.sepc() + 2);
+            sepc.set_bits(sepc.bits() + 2);
+            sepc.write();
         }
         Trap::Exception(Exception::InstructionPageFault) => {
             warn!("{:#x?}", Exception::InstructionPageFault);
@@ -91,10 +79,4 @@ pub fn kernel_trap_handler(trapframe: &mut TrapFrame) {
             );
         }
     }
-
-    //trap_from_kernel();
-}
-
-pub fn trap_from_kernel() {
-    panic!("trap from kernel");
 }

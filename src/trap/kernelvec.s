@@ -1,14 +1,15 @@
+.section .text.trampsec
+
 .globl kernel_trap_handler
 .globl kernelvec
-.align 4
 kernelvec:
-  addi sp, sp, -264
+  addi sp, sp, -256
   
   # save registers
   sd ra, 0(sp)
   sd sp, 8(sp)
   sd gp, 16(sp)
-  #sd tp, 24(sp)
+  sd tp, 24(sp)
   sd t0, 32(sp)
   sd t1, 40(sp)
   sd t2, 48(sp)
@@ -37,27 +38,8 @@ kernelvec:
   sd t5, 232(sp)
   sd t6, 240(sp)
 
-  ## save csr
-  csrr s2, sepc
-  csrr s3, scause
-  #csrr s4, sbadaddr
-  #csrr s5, sscratch
-  sd s2, 248(sp)
-  sd s3, 256(sp)
-  #sd s4, 264(sp)
-  #sd s5, 24(sp)
-
-  # get sp from sscratch
-
   # call the trap handler
-  mv a0, sp
   call kernel_trap_handler
-
-  ## restore csr
-  ld t0, 248(sp)
-  ld t1, 256(sp)
-  csrw sepc, t0
-  csrw scause, t1
   
   # restore registers.
   ld ra, 0(sp)
@@ -92,7 +74,7 @@ kernelvec:
   ld t5, 232(sp)
   ld t6, 240(sp)
 
-  addi sp, sp, 264
+  addi sp, sp, 256
   
   # return to whatever we were doing in the kernel.
   sret

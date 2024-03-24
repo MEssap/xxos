@@ -14,6 +14,7 @@ use xx_mutex_lock::OnceLock;
 use xxos_log::info;
 
 // Kernel Virtual Memory
+// 完成内核态的虚拟内存页映射，采用直接映射的方式
 pub struct Kvm {
     pagetables: Box<PageTableFrame>,
 }
@@ -34,19 +35,28 @@ impl Kvm {
     pub fn init(&mut self) {
         extern "C" {
             fn stext();
+            fn strampsec();
             fn etext();
             fn srodata();
             fn erodata();
             fn sdata();
             fn edata();
-            fn trampoline();
         }
+
         // map text segment
         self.pagetables.mappages(
             (stext as usize).into(),
             (stext as usize).into(),
             (etext as usize) - (stext as usize),
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_X | PTE_FLAG_V,
+        );
+
+        // trapvec code
+        self.pagetables.mappages(
+            TRAMPOLINE.into(),
+            (strampsec as usize).into(),
+            PGSZ,
+            PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_V,
         );
 
         // map data segment
@@ -64,19 +74,14 @@ impl Kvm {
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
         );
 
-        // map Physical Memory
+        // map all Physical Memory
         self.pagetables.mappages(
             (edata as usize).into(),
             (edata as usize).into(),
             HEAP_TOP - (edata as usize),
             PTE_FLAG_R | PTE_FLAG_W | PTE_FLAG_V,
         );
-        self.pagetables.mappages(
-            TRAMPOLINE.into(),
-            (trampoline as usize).into(),
-            PGSZ,
-            PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_V,
-        );
+
         // map kernel stack
         self.pagetables.map_proc_stacks();
         self.write_satp();

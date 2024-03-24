@@ -1,7 +1,6 @@
-use xx_mutex_lock::Mutex;
-
 use super::process::Tcb;
 use alloc::{collections::VecDeque, sync::Arc};
+use xx_mutex_lock::Mutex;
 
 pub type LockedManager = Mutex<TaskManager>;
 
@@ -15,6 +14,7 @@ impl TaskManager {
             tasks: VecDeque::new(),
         }
     }
+
     pub fn push(&mut self, task: Arc<Tcb>) {
         self.tasks.push_back(task);
     }

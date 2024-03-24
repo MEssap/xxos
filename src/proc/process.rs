@@ -1,3 +1,4 @@
+use super::TASKMANAGER;
 use crate::mm::page_frame::{alloc_page, PageFrame};
 use crate::mm::pagetable_frame::PageTableFrame;
 use crate::mm::pm::def::{kstack, KERNEL_STACK_SIZE, TRAMPOLINE, TRAPFRAME};
@@ -11,8 +12,6 @@ use alloc::{
 };
 use core::{default, ptr};
 use macros::Getter;
-
-use super::TASKMANAGER;
 
 pub static INITCODE: [u8; 52] = [
     0x17, 0x05, 0x00, 0x00, 0x13, 0x05, 0x45, 0x02, 0x97, 0x05, 0x00, 0x00, 0x93, 0x85, 0x35, 0x02,
@@ -92,14 +91,17 @@ pub struct Tcb {
 }
 
 impl Tcb {
-    ///ask for 4096 size page
+    // allocate memory to store data
     /// # Safety
+    /// ask for 4096 size page
     pub unsafe fn alloc<T: Sized>(&mut self) -> *mut T {
         if core::mem::size_of::<T>() > PGSZ {
             panic!("Error the struct size more than a page")
         }
+
         let frame = alloc_page();
         let ret = frame.to_usize();
+
         self.frames.push(frame);
         ret as *mut T
     }
@@ -114,27 +116,33 @@ impl Tcb {
     }
 }
 
+// 创建一个初始进程
 pub fn zero_task() -> Tcb {
     fn init_zero_task_pagetable(trapframe: usize) -> PageTableFrame {
         extern "C" {
-            fn trampoline();
+            fn strampsec();
         }
+
         let mut pagetable = PageTableFrame::new();
         let page = alloc_page();
         let pa = page.to_pma();
+
         pagetable.save_page(page);
+        // map pagetable frame
         pagetable.mappages(
             0.into(),
             pa,
             PGSZ,
             PTE_FLAG_U | PTE_FLAG_V | PTE_FLAG_X | PTE_FLAG_R | PTE_FLAG_W,
         );
+        // map trapvec code
         pagetable.mappages(
             TRAMPOLINE.into(),
-            (trampoline as usize).into(),
+            (strampsec as usize).into(),
             PGSZ,
             PTE_FLAG_V | PTE_FLAG_X | PTE_FLAG_R,
         );
+        // map trapframe
         pagetable.mappages(
             TRAPFRAME.into(),
             trapframe.into(),
@@ -144,6 +152,7 @@ pub fn zero_task() -> Tcb {
         unsafe { ptr::copy_nonoverlapping(INITCODE.as_ptr(), pa.get_mut(), INITCODE.len()) }
         pagetable
     }
+
     let mut task = Tcb::default();
     let trapframe = unsafe {
         let trapframe = task.alloc::<TrapFrame>();
@@ -151,10 +160,11 @@ pub fn zero_task() -> Tcb {
         (*trapframe).sp = PGSZ;
         trapframe
     };
+
     task.name = "initcode".to_string();
     task.pid = 0;
     task.context.sp = kstack(0) + KERNEL_STACK_SIZE;
-    task.context.ra = 0; //todo add userret
+    task.context.ra = 0; //TODO: add userret
     task.trapframe = unsafe { trapframe.as_mut() };
     task.kstack = kstack(0);
     task.state = State::Ready;

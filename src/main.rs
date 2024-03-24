@@ -5,7 +5,7 @@ use core::arch::global_asm;
 use core::sync::atomic::{AtomicBool, Ordering};
 use xxos::console::Log;
 use xxos::riscv::registers::r_tp;
-use xxos::trap::trampoline::usertrapret;
+use xxos::trap::usertrap::usertrapret;
 use xxos::{mm, proc, utils};
 use xxos::{println, trap};
 static STARTED: AtomicBool = AtomicBool::new(false);
@@ -25,16 +25,14 @@ fn main() {
         xxos_log::init_log(&Log, xxos_log::Level::WARN);
         // 初始化trap
         trap::kerneltrap::kernel_trap_init();
-        //rap::ecall::user_env_call_init();
-        //trap::clock::clock_init();
+        trap::clock::clock_init();
         // 初始化内存
         mm::pm::heap_init();
         // 初始化虚拟内存
         mm::vm::kvm_init();
         proc::process::test_initcode();
-        // test
-        //trap_test();
 
+        // test
         //context_test();
         //riscv_test();
         println!("Thread {} start !!!", thread_id);
@@ -45,10 +43,12 @@ fn main() {
                 break;
             }
         }
-        // 每个CPU都使用KVM的页表
+        // 每个CPU都使用同一个KVM页表
         mm::vm::kvm_init();
         println!("Thread {} start !!!", thread_id);
     }
+
+    // 跳转至用户态运行
     usertrapret();
     panic!("run loop")
 }
